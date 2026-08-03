@@ -1,6 +1,6 @@
 # Training Data Pipeline
 
-The `pipeline/` directory is a self-contained data ingestion, normalization, transformation, and embedding pipeline that builds fine-tuning datasets for Codey-v2 from open-source HuggingFace datasets and locally generated synthetic corpora.
+The `pipeline/` directory is a self-contained data ingestion, normalization, transformation, and embedding pipeline that builds fine-tuning datasets for Kuza-v2 from open-source HuggingFace datasets and locally generated synthetic corpora.
 
 ---
 
@@ -10,7 +10,7 @@ The pipeline:
 
 1. **Ingests** records from HuggingFace datasets (streamed — no full download required) and local JSONL files
 2. **Normalizes** each record: extracts instruction + code/tool-call content, converts Linux idioms to Termux equivalents (`apt` → `pkg`, `python3` → `python`, strips `sudo`), deduplicates, and scores quality
-3. **Transforms** normalized records into Codey-v2 tool call format: `{"name": "shell", "args": {"command": "..."}}`
+3. **Transforms** normalized records into Kuza-v2 tool call format: `{"name": "shell", "args": {"command": "..."}}`
 4. **Exports** a `training_data.jsonl` file in ShareGPT format, ready for Unsloth fine-tuning
 5. **Optionally embeds** every record with nomic-embed-text and stores vectors + metadata in an hnswlib index + SQLite database for RAG retrieval
 
@@ -37,7 +37,7 @@ Each line is a JSON object in ShareGPT format:
 ```json
 {
   "conversations": [
-    {"role": "system",    "content": "<Codey-v2 system prompt>"},
+    {"role": "system",    "content": "<Kuza-v2 system prompt>"},
     {"role": "user",      "content": "install python in termux"},
     {"role": "assistant", "content": "<tool>\n{\"name\": \"shell\", \"args\": {\"command\": \"pkg install python\"}}\n</tool>"}
   ],
@@ -96,7 +96,7 @@ python pipeline/run.py --datasets mbpp humaneval
 python pipeline/run.py --datasets phase1 --embed
 ```
 
-Requires the nomic-embed-text llama-server running on port 8082 (`codeyd2 start` handles this). Builds a vector index for RAG retrieval in addition to the training JSONL.
+Requires the nomic-embed-text llama-server running on port 8082 (`kuzad2 start` handles this). Builds a vector index for RAG retrieval in addition to the training JSONL.
 
 ### Custom output directory
 
@@ -200,7 +200,7 @@ The pipeline automatically converts Linux-style commands to their Termux equival
 
 ## Tool call format
 
-All output records use Codey-v2's native tool call format:
+All output records use Kuza-v2's native tool call format:
 
 ```
 <tool>
@@ -236,7 +236,7 @@ See [fine-tuning.md](fine-tuning.md) for the full Colab workflow. The key step i
 
 ## Using the output for RAG
 
-When run with `--embed`, the pipeline builds a retrieval index alongside the training data. The index is used automatically by the Codey-v2 daemon for tool-call retrieval — when you ask Codey to do something, it searches the index for similar past examples and injects the top-k results into the prompt.
+When run with `--embed`, the pipeline builds a retrieval index alongside the training data. The index is used automatically by the Kuza-v2 daemon for tool-call retrieval — when you ask Kuza to do something, it searches the index for similar past examples and injects the top-k results into the prompt.
 
 The index lives at `pipeline_output/retrieval/`:
 - `index.bin` — hnswlib cosine vector index (768-dim nomic vectors)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-User preference learning for Codey-v2.
+User preference learning for Kuza-v2.
 
 Automatically learns and remembers user preferences:
 - Test framework (pytest vs unittest)
@@ -412,19 +412,19 @@ class PreferenceManager:
                 current["observations"] += 1
 
         self._save_preferences()
-        # Mirror high-confidence preferences to CODEY.md Conventions section
+        # Mirror high-confidence preferences to KUZA.md Conventions section
         if self._cache.get(key, {}).get("confidence", 0) >= 0.8:
-            self._sync_to_codeymd(key, value)
+            self._sync_to_kuzamd(key, value)
 
-    def _sync_to_codeymd(self, key: str, value: str):
-        """Write a learned preference into the Conventions section of CODEY.md."""
+    def _sync_to_kuzamd(self, key: str, value: str):
+        """Write a learned preference into the Conventions section of KUZA.md."""
         try:
-            from core.codeymd import find_codeymd
+            from core.codeymd import find_kuzamd
             import os
-            codeymd_path = find_codeymd()
-            if not codeymd_path:
+            kuzamd_path = find_kuzamd()
+            if not kuzamd_path:
                 return
-            text = codeymd_path.read_text(encoding="utf-8", errors="replace")
+            text = kuzamd_path.read_text(encoding="utf-8", errors="replace")
             label_map = {
                 "test_framework":    "Test framework",
                 "code_style":        "Code style",
@@ -464,10 +464,10 @@ class PreferenceManager:
                     new_lines.append(line)
                 if in_conv and not entry_written:
                     new_lines.append(entry)
-                codeymd_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                kuzamd_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
             else:
                 # No Conventions section — append one
-                codeymd_path.write_text(
+                kuzamd_path.write_text(
                     text.rstrip() + f"\n\n# Conventions\n{entry}\n",
                     encoding="utf-8"
                 )

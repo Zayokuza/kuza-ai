@@ -1,7 +1,7 @@
 """
 --fix mode: run a Python file, capture the error, auto-patch it.
-codey --fix script.py
-codey --fix script.py "also add argument parsing while you're at it"
+kuza --fix script.py
+kuza --fix script.py "also add argument parsing while you're at it"
 """
 import subprocess
 import sys
@@ -35,7 +35,7 @@ def fix_file(filepath: str, extra_instruction: str = "", yolo: bool = False):
     Main fix mode entrypoint.
     1. Read the file
     2. Run it and capture error
-    3. If error, ask Codey to fix it
+    3. If error, ask Kuza to fix it
     4. Write the fix
     5. Re-run to verify
     """
@@ -102,4 +102,4 @@ def fix_file(filepath: str, extra_instruction: str = "", yolo: bool = False):
     else:
         warning(f"Fix attempt did not fully resolve the error:")
         print(output2)
-        info("Try: codey --read " + str(p) + " \"fix this error: " + output2[:100] + "\"")
+        info("Try: kuza --read " + str(p) + " \"fix this error: " + output2[:100] + "\"")

@@ -3,7 +3,7 @@
 # Usage:  bash gui/start.sh [port]
 #
 # Starts the browser GUI in the background, then drops you into the
-# interactive codey2 session in this terminal — both live at once.
+# interactive kuza2 session in this terminal — both live at once.
 #
 # Requires:  pip install aiohttp   (already in requirements.txt)
 
@@ -19,7 +19,7 @@ echo "  ╔═══════════════════════
 echo "  ║    CODEY-V2  ·  GUI + CLI LAUNCHER   ║"
 echo "  ╠══════════════════════════════════════╣"
 echo "  ║  Browser → http://localhost:${PORT}      ║"
-echo "  ║  Terminal → interactive codey2 below ║"
+echo "  ║  Terminal → interactive kuza2 below ║"
 echo "  ╚══════════════════════════════════════╝"
 echo ""
 
@@ -35,5 +35,5 @@ echo ""
 # Kill the GUI server when this script exits (Ctrl+C or natural exit)
 trap 'echo ""; echo "  Stopping GUI server..."; kill "$GUI_PID" 2>/dev/null; exit 0' INT TERM EXIT
 
-# ── Drop into interactive codey2 in the foreground ──────────────────────────
+# ── Drop into interactive kuza2 in the foreground ──────────────────────────
 python main.py

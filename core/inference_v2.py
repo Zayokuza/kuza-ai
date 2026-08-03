@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Inference engine for Codey-v2 (v2.6.0 — ChatML fix).
+Inference engine for Kuza-v2 (v2.6.0 — ChatML fix).
 
 Uses llama-server's /v1/chat/completions endpoint which automatically applies
 the model's chat template. Previous versions sent raw text to /completion,

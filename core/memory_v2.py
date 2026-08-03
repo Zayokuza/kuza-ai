@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Hierarchical Memory for Codey-v2 (v2.7.0).
+Hierarchical Memory for Kuza-v2 (v2.7.0).
 
 Four-tier memory system:
 1. Working Memory   — currently edited files (LRU eviction by turn + token limit)
-2. Project Memory   — key project files (CODEY.md, config) — never evicted
+2. Project Memory   — key project files (KUZA.md, config) — never evicted
 3. Long-term Memory — semantic search via embeddings (SQLite-backed, optional)
 4. Episodic Memory  — append-only action log
 
@@ -253,14 +253,14 @@ class ProjectMemoryItem:
 
 class ProjectMemory:
     """
-    Project memory for key files (CODEY.md, config, README).
+    Project memory for key files (KUZA.md, config, README).
     Never evicted — loaded once at daemon start.
     """
 
     def __init__(self):
         self._files: Dict[str, ProjectMemoryItem] = {}
         self._protected_patterns = [
-            "CODEY.md", "codey-v2.md", "README.md",
+            "KUZA.md", "kuza-v2.md", "README.md",
             "config.py", "config.json",
         ]
 

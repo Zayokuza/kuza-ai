@@ -1,6 +1,6 @@
 # Knowledge Base
 
-The knowledge base (KB) is an optional but recommended local document store that Codey searches during every inference call. Relevant chunks are injected into the prompt automatically — no manual retrieval step needed.
+The knowledge base (KB) is an optional but recommended local document store that Kuza searches during every inference call. Relevant chunks are injected into the prompt automatically — no manual retrieval step needed.
 
 ## How It Works
 
@@ -16,7 +16,7 @@ If the KB is empty, there is no overhead — retrieval is silently skipped.
 ## Quick Setup — 5 Curated Repositories
 
 ```bash
-cd ~/codey-v2
+cd ~/kuza-v2
 mkdir -p knowledge && cd knowledge
 
 git clone --depth 1 https://github.com/swaroopch/byte-of-python
@@ -25,7 +25,7 @@ git clone --depth 1 https://github.com/luckrnx09/python-guide-for-javascript-eng
 git clone --depth 1 https://github.com/EbookFoundation/free-programming-books
 git clone --depth 1 https://github.com/mdn/content
 
-cd ~/codey-v2
+cd ~/kuza-v2
 ```
 
 Total size: ~266 MB · ~38 markdown files indexed · ~1167 searchable chunks.
@@ -81,7 +81,7 @@ Expected output:
 ## Add Your Own Documentation
 
 ```bash
-cp my_api_docs.md ~/codey-v2/knowledge/docs/
+cp my_api_docs.md ~/kuza-v2/knowledge/docs/
 
 python3 -c "
 from tools.kb_scraper import index_directory
@@ -101,7 +101,7 @@ Skill repos contain reusable agent prompt templates. Set them up once:
 bash tools/setup_skills.sh
 ```
 
-This clones curated skill repos into `knowledge/skills/` and indexes them. During inference, Codey detects if a skill template matches the current task and injects it into the system prompt automatically.
+This clones curated skill repos into `knowledge/skills/` and indexes them. During inference, Kuza detects if a skill template matches the current task and injects it into the system prompt automatically.
 
 ---
 
@@ -123,7 +123,7 @@ Output breakdown:
 
 This is useful for:
 - Checking whether your KB has relevant content for a task
-- Tuning `semantic_threshold` in `~/.codey-v2/config.json` if too much or too little is being retrieved
+- Tuning `semantic_threshold` in `~/.kuza-v2/config.json` if too much or too little is being retrieved
 - Verifying that newly indexed documents are being found
 
 If the output shows `(nothing injected — all chunks filtered out or KB empty)`, either the KB has no relevant documents or the score threshold is too high for the available content.

@@ -13,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-# Import the actual Codey-v2 system prompt so training data is consistent
+# Import the actual Kuza-v2 system prompt so training data is consistent
 try:
     import sys
     import os
@@ -22,7 +22,7 @@ try:
     from prompts.system_prompt import SYSTEM_PROMPT
 except ImportError:
     SYSTEM_PROMPT = (
-        "You are Codey-v2, a local AI coding assistant running on Termux.\n"
+        "You are Kuza-v2, a local AI coding assistant running on Termux.\n"
         "YOUR RESPONSE IS ALWAYS ONE TOOL CALL. Output exactly this structure:\n"
         "<tool>\n{\"name\": \"TOOL_NAME\", \"args\": {\"ARG\": \"VALUE\"}}\n</tool>"
     )
@@ -30,7 +30,7 @@ except ImportError:
 
 def _format_tool_calls_as_assistant(tool_calls: List[Dict]) -> str:
     """
-    Serialize tool_calls to the assistant response format Codey-v2 uses:
+    Serialize tool_calls to the assistant response format Kuza-v2 uses:
 
     <tool>
     {"name": "shell", "args": {"command": "pkg install python"}}
@@ -117,7 +117,7 @@ class Exporter:
 
         {
           "conversations": [
-            {"role": "system",    "content": "<Codey-v2 system prompt>"},
+            {"role": "system",    "content": "<Kuza-v2 system prompt>"},
             {"role": "user",      "content": "install python in termux"},
             {"role": "assistant", "content": "<tool>\n{...}\n</tool>"}
           ],

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Thermal Management for Codey-v2.
+Thermal Management for Kuza-v2.
 
 Tracks inference duration and:
 - Logs warning after 5 min continuous
@@ -20,7 +20,7 @@ from utils.config import THERMAL_CONFIG, MODEL_CONFIG
 
 class ThermalManager:
     """
-    Manages thermal throttling for Codey-v2.
+    Manages thermal throttling for Kuza-v2.
 
     Tracks:
     - Continuous inference duration

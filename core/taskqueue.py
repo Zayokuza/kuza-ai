@@ -9,7 +9,7 @@ from dataclasses import dataclass, asdict
 from typing import Optional
 from datetime import datetime
 
-SESSIONS_DIR = Path.home() / '.codey_sessions'
+SESSIONS_DIR = Path.home() / '.kuza_sessions'
 
 STATUS_PENDING  = 'pending'
 STATUS_RUNNING  = 'running'

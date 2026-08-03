@@ -6,23 +6,23 @@
 
 ```bash
 # Remove a stale PID file left by a crash
-rm -f ~/.codey-v2/codey-v2.pid
+rm -f ~/.kuza-v2/kuza-v2.pid
 
 # Check the log for the actual error
-cat ~/.codey-v2/codey-v2.log
+cat ~/.kuza-v2/kuza-v2.log
 
 # Restart cleanly
-codeyd2 restart
+kuzad2 restart
 ```
 
 ### Socket connection failed
 
 ```bash
 # Confirm the daemon is running
-codeyd2 status
+kuzad2 status
 
 # Confirm the socket exists with correct permissions
-ls -la ~/.codey-v2/codey-v2.sock
+ls -la ~/.kuza-v2/kuza-v2.sock
 # Expected: srw------- (0600, owner only)
 ```
 
@@ -39,9 +39,9 @@ Check that the filenames match the paths in `utils/config.py`, or set `CODEY_MOD
 ### High memory usage
 
 ```bash
-codeyd2 status   # Check RAM and task queue
+kuzad2 status   # Check RAM and task queue
 
-codeyd2 restart  # Clears working memory
+kuzad2 restart  # Clears working memory
 ```
 
 If the 7B model alone is using more than ~5 GB, verify that `CODEY_7B_MMAP=1` is set (default). Memory-mapped weights only load touched pages into RAM.
@@ -51,22 +51,22 @@ If the 7B model alone is using more than ~5 GB, verify that `CODEY_7B_MMAP=1` is
 The 0.5B model on port 8081 may have failed to start or crashed.
 
 ```bash
-cat ~/.codey-v2/plannd.log        # Check planner log
-cat ~/.codey-v2/plannd-llama.log  # Check llama-server log
+cat ~/.kuza-v2/plannd.log        # Check planner log
+cat ~/.kuza-v2/plannd-llama.log  # Check llama-server log
 
-codeyd2 restart                   # Restart all daemons
+kuzad2 restart                   # Restart all daemons
 ```
 
 If port 8081 is unreachable, task planning falls back to heuristic decomposition and context compression skips the micro-summary step. The agent continues working normally.
 
 ### Peer CLI crashes on startup
 
-On Android ARM64, some CLIs bundle native Node.js modules (e.g., `node-pty`) that have no ARM64 prebuilt. Codey detects this automatically at startup and excludes broken CLIs from the available list. No manual configuration is needed.
+On Android ARM64, some CLIs bundle native Node.js modules (e.g., `node-pty`) that have no ARM64 prebuilt. Kuza detects this automatically at startup and excludes broken CLIs from the available list. No manual configuration is needed.
 
 To check which peers are available:
 
 ```bash
-codey2   # then type /peer
+kuza2   # then type /peer
 ```
 
 ---
@@ -101,7 +101,7 @@ codey2   # then type /peer
 | `watchdog` optional | Background file monitoring disabled without it | `pip install watchdog` to enable |
 | Single-device only | State is not synced across devices | Intentional — local privacy by design |
 | Peer CLIs with `node-pty` | CLIs that bundle ARM64-incompatible native modules crash on Android | Auto-detected and excluded at startup |
-| No encrypted memory | `~/.codey-v2/` stored in plaintext | Encryption planned for a future release |
+| No encrypted memory | `~/.kuza-v2/` stored in plaintext | Encryption planned for a future release |
 
 ---
 
@@ -109,7 +109,7 @@ codey2   # then type /peer
 
 | Log file | Contents |
 |----------|----------|
-| `~/.codey-v2/codey-v2.log` | Main daemon log |
-| `~/.codey-v2/plannd.log` | 0.5B planner daemon log |
-| `~/.codey-v2/plannd-llama.log` | llama-server log for the 0.5B model |
-| `~/.codey-v2/embed-server.log` | nomic-embed llama-server log |
+| `~/.kuza-v2/kuza-v2.log` | Main daemon log |
+| `~/.kuza-v2/plannd.log` | 0.5B planner daemon log |
+| `~/.kuza-v2/plannd-llama.log` | llama-server log for the 0.5B model |
+| `~/.kuza-v2/embed-server.log` | nomic-embed llama-server log |

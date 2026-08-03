@@ -8,11 +8,11 @@
 #   bash tools/setup_skills.sh
 #   bash tools/setup_skills.sh --no-semantic   # skip embedding index build
 #
-# Run from the codey-v2 root directory.
+# Run from the kuza-v2 root directory.
 
 set -euo pipefail
 
-CODEY_DIR="${CODEY_DIR:-$HOME/codey-v2}"
+CODEY_DIR="${CODEY_DIR:-$HOME/kuza-v2}"
 SKILL_DIR="$CODEY_DIR/knowledge/skills"
 NO_SEMANTIC=0
 
@@ -28,7 +28,7 @@ for arg in "$@"; do
 done
 
 # ── Create directory structure ────────────────────────────────────────────────
-echo "=== Codey-v2 Knowledge Base Setup ==="
+echo "=== Kuza-v2 Knowledge Base Setup ==="
 echo "KB root: $CODEY_DIR/knowledge"
 echo ""
 
@@ -98,11 +98,11 @@ echo "[2/4] Indexing skill repositories into knowledge base..."
 
 python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")))
+sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
 
 from tools.kb_scraper import index_directory
 
-skill_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")), "knowledge", "skills")
+skill_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "skills")
 
 repos = [
     ("awesome-claude-skills",          (".md", ".txt", ".yaml", ".yml", ".json")),
@@ -138,9 +138,9 @@ DOCS_DIR="$CODEY_DIR/knowledge/docs"
 if [ -d "$DOCS_DIR" ] && [ "$(ls -A "$DOCS_DIR" 2>/dev/null)" ]; then
     python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")))
+sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
 from tools.kb_scraper import index_directory
-docs_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")), "knowledge", "docs")
+docs_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "docs")
 index_directory(docs_dir, category="docs")
 PYEOF
 else
@@ -153,7 +153,7 @@ if [ "$NO_SEMANTIC" -eq 0 ]; then
     echo "[4/4] Building semantic index..."
     python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")))
+sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
 try:
     from tools.kb_semantic import (
         build_semantic_index, check_llama_embeddings,
@@ -198,7 +198,7 @@ echo ""
 # Print final stats
 python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/codey-v2")))
+sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
 try:
     from tools.kb_semantic import index_stats, HAS_SENTENCE_TRANSFORMERS
     s = index_stats()
@@ -213,10 +213,10 @@ except Exception as e:
 PYEOF
 
 echo ""
-echo "The knowledge base is ready. Codey will now retrieve relevant"
+echo "The knowledge base is ready. Kuza will now retrieve relevant"
 echo "context from it during inference."
 echo ""
 echo "To add your own docs:"
-echo "  cp my_docs/*.md ~/codey-v2/knowledge/docs/"
+echo "  cp my_docs/*.md ~/kuza-v2/knowledge/docs/"
 echo "  python3 -c \"from tools.kb_scraper import index_directory; index_directory('knowledge/docs', 'docs')\""
 echo "  python3 -c \"from tools.kb_semantic import build_semantic_index; build_semantic_index()\""

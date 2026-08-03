@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit tests for Codey-v2 hierarchical memory system (memory_v2.py).
+Unit tests for Kuza-v2 hierarchical memory system (memory_v2.py).
 
 Tests cover:
 - load_file
@@ -248,7 +248,7 @@ class TestMemoryLoadFile(unittest.TestCase):
     def test_load_file_reads_from_disk(self):
         """load_file should read from disk if content not provided."""
         # Create a temp file in our temp dir
-        test_file = Path(self.temp_dir) / "codey_test_memory.py"
+        test_file = Path(self.temp_dir) / "kuza_test_memory.py"
         test_file.write_text("test content")
         
         result = self.memory.load_file(str(test_file))
@@ -489,7 +489,7 @@ class TestMemoryAddToProject(unittest.TestCase):
 
     def test_add_to_project_tracks_file(self):
         """add_to_project should add file to project memory."""
-        self.memory.add_to_project("CODEY.md", "# Codey Config\n")
+        self.memory.add_to_project("CODEY.md", "# Kuza Config\n")
         self.assertTrue(self.memory.project.is_tracked("CODEY.md"))
 
     def test_add_to_project_protected(self):

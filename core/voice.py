@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Voice interface for Codey-v2 — TTS and STT via Termux:API.
+Voice interface for Kuza-v2 — TTS and STT via Termux:API.
 Phase 1 of the upgrade roadmap (v2.5.1).
 
 Requirements:
@@ -21,11 +21,11 @@ from typing import Optional
 from utils.logger import info, warning, success
 
 # Persist voice settings across sessions
-_VOICE_CONFIG_PATH = Path.home() / ".config" / "codey-v2" / "voice_config.json"
+_VOICE_CONFIG_PATH = Path.home() / ".config" / "kuza-v2" / "voice_config.json"
 
 
 class VoiceManager:
-    """Manages TTS and STT for Codey-v2 via Termux:API."""
+    """Manages TTS and STT for Kuza-v2 via Termux:API."""
 
     def __init__(self):
         self.enabled: bool = False

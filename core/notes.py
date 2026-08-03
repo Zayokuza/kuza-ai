@@ -1,17 +1,17 @@
 """
-Persistent user notes for Codey-v2.
+Persistent user notes for Kuza-v2.
 
-Simple key-value store for facts the user asks Codey to remember
+Simple key-value store for facts the user asks Kuza to remember
 (e.g., "my name is Ish", "I prefer tabs over spaces").
 
-Stored at ~/.codey-v2/notes.json — survives across sessions.
+Stored at ~/.kuza-v2/notes.json — survives across sessions.
 """
 
 import json
 from pathlib import Path
 from typing import Optional
 
-_NOTES_FILE = Path.home() / ".codey-v2" / "notes.json"
+_NOTES_FILE = Path.home() / ".kuza-v2" / "notes.json"
 
 
 def _load() -> dict:

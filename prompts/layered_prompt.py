@@ -72,7 +72,7 @@ class LayeredPrompt:
     Example:
         p = LayeredPrompt(budget_chars=12000)
         p.add("identity", get_system_prompt(), priority=0, required=True)
-        p.add("project",  codeymd_text,  priority=2)
+        p.add("project",  kuzamd_text,  priority=2)
         p.add("files",    file_block,    priority=4)
         system_prompt = p.build()
     """
@@ -165,10 +165,10 @@ def _get_preferences_block() -> str:
 def _get_project_block() -> str:
     """Return CODEY.md block, or project-summary block, or empty string."""
     try:
-        from core.codeymd import read_codeymd
-        codeymd = read_codeymd()
-        if codeymd:
-            return "## Project Memory\n" + codeymd
+        from core.codeymd import read_kuzamd
+        kuzamd = read_kuzamd()
+        if kuzamd:
+            return "## Project Memory\n" + kuzamd
     except Exception:
         pass
     try:

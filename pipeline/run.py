@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Codey-v2 Tools Embedding Pipeline — CLI entry point.
+Kuza-v2 Tools Embedding Pipeline — CLI entry point.
 
 Usage:
   python pipeline/run.py --help
@@ -91,7 +91,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     retrieval_dir = output_dir / "retrieval"
     retrieval_dir.mkdir(exist_ok=True)
 
-    print(f"\nCodey-v2 Tools Embedding Pipeline")
+    print(f"\nKuza-v2 Tools Embedding Pipeline")
     print(f"{'='*50}")
     print(f"  Output dir:  {output_dir}")
     print(f"  Min quality: {args.min_quality}")
@@ -247,7 +247,7 @@ def _flush_embeddings(
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Codey-v2 Tools Embedding Pipeline",
+        description="Kuza-v2 Tools Embedding Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Dataset shortnames:

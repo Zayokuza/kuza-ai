@@ -26,7 +26,7 @@ def get_plan(prompt: str, no_plan: bool = False, project_context: str = ""):
     Args:
         prompt:          The user message to plan.
         no_plan:         Skip planning entirely when True.
-        project_context: Optional CODEY.md / project summary passed to
+        project_context: Optional KUZA.md / project summary passed to
                          plan_tasks when falling back to the 7B planner.
 
     Returns:

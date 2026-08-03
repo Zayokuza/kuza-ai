@@ -2,10 +2,10 @@ import os
 from pathlib import Path
 from utils.logger import success, info
 
-CODEYMD_FILENAME = "CODEY.md"
-_codeymd_cache: dict = {}  # tracks which paths we've already logged
+CODEYMD_FILENAME = "KUZA.md"
+_kuzamd_cache: dict = {}  # tracks which paths we've already logged
 
-def find_codeymd(start: str = None) -> Path | None:
+def find_kuzamd(start: str = None) -> Path | None:
     start = Path(start or os.getcwd())
     for directory in [start] + list(start.parents)[:2]:
         candidate = directory / CODEYMD_FILENAME
@@ -13,22 +13,22 @@ def find_codeymd(start: str = None) -> Path | None:
             return candidate
     return None
 
-def read_codeymd(start: str = None) -> str:
-    path = find_codeymd(start)
+def read_kuzamd(start: str = None) -> str:
+    path = find_kuzamd(start)
     if not path:
         return ""
     try:
         content = path.read_text(encoding="utf-8", errors="replace").strip()
-        if "Write a concise CODEY.md" in content or "Analyze this project" in content:
+        if "Write a concise KUZA.md" in content or "Analyze this project" in content:
             return ""
-        if str(path) not in _codeymd_cache:
-            success(f"Loaded CODEY.md from {path}")
-            _codeymd_cache[str(path)] = True
+        if str(path) not in _kuzamd_cache:
+            success(f"Loaded KUZA.md from {path}")
+            _kuzamd_cache[str(path)] = True
         return content
     except Exception:
         return ""
 
-def write_codeymd(content: str, directory: str = None) -> str:
+def write_kuzamd(content: str, directory: str = None) -> str:
     directory = Path(directory or os.getcwd())
     path = directory / CODEYMD_FILENAME
     try:
@@ -39,7 +39,7 @@ def write_codeymd(content: str, directory: str = None) -> str:
 
 def get_init_prompt(project_info: dict) -> str:
     files = project_info.get('context', '')
-    return f"""Write a CODEY.md file for this project. Output ONLY the markdown content, nothing else.
+    return f"""Write a KUZA.md file for this project. Output ONLY the markdown content, nothing else.
 
 Project details:
 {files}
@@ -64,4 +64,4 @@ Code style or architecture rules to follow.
 # Notes
 Anything important an AI assistant should know.
 
-Write the CODEY.md now. Output only markdown, no explanation, no preamble."""
+Write the KUZA.md now. Output only markdown, no explanation, no preamble."""

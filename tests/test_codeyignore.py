@@ -4,12 +4,12 @@ from pathlib import Path
 from core.context import load_file
 from core.memory_v2 import memory as _mem
 
-class TestCodeyIgnore(unittest.TestCase):
+class TestKuzaIgnore(unittest.TestCase):
     def setUp(self):
         _mem.clear()
         self.env_file = Path(".env")
         self.env_file.write_text("SECRET=123")
-        self.ignore_file = Path(".codeyignore")
+        self.ignore_file = Path(".kuzaignore")
         self.log_file = Path("test.log")
         self.secret_dir = Path("secrets")
 

@@ -109,7 +109,7 @@ def infer(messages: list[dict], stream: bool = True, extra_stop: list = None) ->
         stop_tokens += [s for s in extra_stop if s not in stop_tokens]
 
     payload = json.dumps({
-        "model":          "codey",
+        "model":          "kuza",
         "messages":       messages,
         "max_tokens":     cfg["max_tokens"],
         "temperature":    cfg["temperature"],
@@ -133,7 +133,7 @@ def infer(messages: list[dict], stream: bool = True, extra_stop: list = None) ->
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
             if stream:
-                print("\033[1;32mCodey:\033[0m ", end="", flush=True)
+                print("\033[1;32mKuza:\033[0m ", end="", flush=True)
                 for raw_line in resp:
                     line = raw_line.decode("utf-8").strip()
                     if not line or not line.startswith("data: "):

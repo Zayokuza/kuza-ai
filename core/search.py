@@ -1,5 +1,5 @@
 """
-/search — grep across project files from inside Codey chat.
+/search — grep across project files from inside Kuza chat.
 """
 import subprocess
 import os

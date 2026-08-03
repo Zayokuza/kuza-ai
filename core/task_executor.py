@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Task executor for Codey-v2 daemon.
+Task executor for Kuza-v2 daemon.
 
 Executes queued tasks using the full run_agent() pipeline — the same code
 path used by the interactive CLI.  Both modes are now identical in capability:

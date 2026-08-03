@@ -1,5 +1,5 @@
 """
-planner_client — async planning interface for Codey-v2
+planner_client — async planning interface for Kuza-v2
 
 Sends a raw user task to the 0.5B model on port 8081 for planning,
 then returns the numbered step list.  Designed to be awaited directly

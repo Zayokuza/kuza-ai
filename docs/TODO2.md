@@ -1,4 +1,4 @@
-# Codey-v2 — TODO2: Deferred Items & Recommendations
+# Kuza-v2 — TODO2: Deferred Items & Recommendations
 
 **Created:** 2026-03-29
 **Version:** v2.7.2
@@ -147,7 +147,7 @@ secrets, shell injection, etc.) go undetected during `/review`.
 heuristic thresholds.
 
 **Recommended approach:**
-- Add `core/audit.py` that appends JSONL entries to `~/.codey/audit.log`:
+- Add `core/audit.py` that appends JSONL entries to `~/.kuza/audit.log`:
   ```json
   {"ts": "...", "tool": "shell", "cmd": "rm -rf /tmp/x", "approved": true, "user": "u0"}
   ```
@@ -158,7 +158,7 @@ heuristic thresholds.
   - shell commands containing `curl | sh`, `eval`, `base64 -d`
 - Surface warnings to user, not automatic blocks.
 
-**Risk:** Low — reduces ability to audit what Codey did in a session.
+**Risk:** Low — reduces ability to audit what Kuza did in a session.
 
 ---
 

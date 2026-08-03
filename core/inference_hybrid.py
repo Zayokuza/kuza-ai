@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Inference backend for Codey-v2 (v2.6.0 — simplified).
+Inference backend for Kuza-v2 (v2.6.0 — simplified).
 
 Uses llama-server's /v1/chat/completions endpoint which automatically applies
 the model's chat template (ChatML for Qwen2.5-Coder). This is CRITICAL —
@@ -82,7 +82,7 @@ class ChatCompletionBackend:
                 stop_tokens.extend(s for s in stop if s not in stop_tokens)
 
             payload = {
-                "model": "codey",
+                "model": "kuza",
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": MODEL_CONFIG["temperature"],

@@ -1,20 +1,20 @@
-# Codey-v2 Tools Embedding Pipeline — Design Plan
+# Kuza-v2 Tools Embedding Pipeline — Design Plan
 
 ## 1. Overview
 
 This document describes the architecture for a **dataset ingestion, normalization, and embedding pipeline** that:
 
 1. Loads open-source code + instruction datasets (HuggingFace Hub)
-2. Converts raw examples into Codey-v2 tool-call format
+2. Converts raw examples into Kuza-v2 tool-call format
 3. Generates text embeddings for semantic retrieval
 4. Stores examples in a vector store (FAISS + SQLite metadata)
 5. Outputs dual-purpose artifacts: training-ready JSONL + retrieval-ready index
 
-The pipeline is designed to run on-device (Termux/Android) with lightweight models, or off-device for large dataset processing. It reuses Codey-v2's existing embedding infrastructure (nomic-embed-text on port 8082) wherever possible.
+The pipeline is designed to run on-device (Termux/Android) with lightweight models, or off-device for large dataset processing. It reuses Kuza-v2's existing embedding infrastructure (nomic-embed-text on port 8082) wherever possible.
 
 ---
 
-## 2. Codey-v2 Tool System — Key Findings
+## 2. Kuza-v2 Tool System — Key Findings
 
 ### 2.1 Tool Call Format (from `core/agent.py` + `prompts/system_prompt.py`)
 
@@ -81,7 +81,7 @@ For the embedding/RAG store, each record is a flat dict:
 }
 ```
 
-> **Note on naming:** The example in the task description uses `"arguments"` and `"run_termux_command"`. The canonical Codey-v2 format uses `"args"` and `"shell"`. This pipeline normalizes everything to the canonical format.
+> **Note on naming:** The example in the task description uses `"arguments"` and `"run_termux_command"`. The canonical Kuza-v2 format uses `"args"` and `"shell"`. This pipeline normalizes everything to the canonical format.
 
 ---
 
@@ -105,7 +105,7 @@ For the embedding/RAG store, each record is a flat dict:
 - Stream or batch-load datasets using `datasets` library
 - Support multiple dataset formats (instruction-tuning, code QA, shell commands)
 - Apply row-level deduplication (SHA-256 hash of normalized input text)
-- Cache locally in `~/.codey-v2/pipeline_cache/` to avoid re-downloading
+- Cache locally in `~/.kuza-v2/pipeline_cache/` to avoid re-downloading
 
 **Input sources (initial targets):**
 
@@ -149,7 +149,7 @@ For the embedding/RAG store, each record is a flat dict:
 
 ### Stage 3 — Tool Call Transformation (`transformation/`)
 
-**Purpose:** Map normalized examples to one or more Codey-v2 tool calls.
+**Purpose:** Map normalized examples to one or more Kuza-v2 tool calls.
 
 **Output:**
 
@@ -331,7 +331,7 @@ For `multi_step` records with many tool calls, embed each step separately AND em
 | `all-MiniLM-L6-v2` | 384 | ~80MB | sentence-transformers (already in `core/embeddings.py`) |
 | `BAAI/bge-small-en-v1.5` | 384 | ~133MB | Fast, high quality |
 
-**Recommendation:** Use **nomic-embed-text** via port 8082 for consistency with Codey-v2's existing RAG pipeline. Fall back to `all-MiniLM-L6-v2` if the embed server is offline.
+**Recommendation:** Use **nomic-embed-text** via port 8082 for consistency with Kuza-v2's existing RAG pipeline. Fall back to `all-MiniLM-L6-v2` if the embed server is offline.
 
 ### 6.4 Metadata to Store Alongside Each Vector
 
@@ -377,7 +377,7 @@ Each example is assigned a quality score 0.0–1.0:
 |--------|------------|
 | Instruction is ≥ 5 words | +0.2 |
 | Tool args are non-trivial (content > 20 chars) | +0.2 |
-| Command passes Codey-v2 metacharacter validation | +0.1 |
+| Command passes Kuza-v2 metacharacter validation | +0.1 |
 | Source dataset is curated (glaive, alpaca) | +0.2 |
 | Source dataset is raw scrape | −0.1 |
 | Multi-step example (≥ 2 tool calls) | +0.1 |
@@ -592,13 +592,13 @@ pipeline/
 
 ---
 
-## 13. Integration with Codey-v2
+## 13. Integration with Kuza-v2
 
-Once the pipeline runs, the outputs plug directly into the existing Codey-v2 systems:
+Once the pipeline runs, the outputs plug directly into the existing Kuza-v2 systems:
 
 1. **Fine-tuning:** `training_data.jsonl` is ShareGPT format, compatible with `core/finetune_prep.py` and the Unsloth Colab workflow.
 
-2. **RAG retrieval:** Copy `retrieval/faiss.index` + `retrieval/metadata.db` to `~/.codey-v2/kb/`. The existing `core/retrieval.py` will pick them up for semantic search on the next query.
+2. **RAG retrieval:** Copy `retrieval/faiss.index` + `retrieval/metadata.db` to `~/.kuza-v2/kb/`. The existing `core/retrieval.py` will pick them up for semantic search on the next query.
 
 3. **Direct querying:** The `storage/faiss_store.py` module exposes a `search(query_text, top_k=5)` method that can be called from `core/agent.py` or a new `/kb-tools` command in `main.py`.
 
@@ -611,7 +611,7 @@ Once the pipeline runs, the outputs plug directly into the existing Codey-v2 sys
 ## 14. Dataset Strategy and Sources
 
 This section documents every selected dataset, why it was chosen, how each maps to
-Codey-v2 tool calls, and how it feeds the embedding pipeline.  All datasets listed
+Kuza-v2 tool calls, and how it feeds the embedding pipeline.  All datasets listed
 below were verified against the HuggingFace Hub on 2026-03-28.
 
 ---
@@ -648,10 +648,10 @@ below were verified against the HuggingFace Hub on 2026-03-28.
 **HF:** https://hf.co/datasets/glaiveai/glaive-function-calling-v2
 **License:** Apache-2.0 | **Size:** ~113K | **Downloads:** 70K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 The largest freely available function-calling dataset. Each example contains a
 system prompt with JSON tool schemas, multi-turn conversations, and assistant turns
-that call functions with structured arguments. Directly analogous to the Codey-v2
+that call functions with structured arguments. Directly analogous to the Kuza-v2
 `<tool>{"name":..., "args":{...}}</tool>` format. High diversity of tool types and
 argument shapes. Actively used for training production-grade tool-calling models.
 
@@ -663,16 +663,16 @@ argument shapes. Actively used for training production-grade tool-calling models
 }
 ```
 
-**Transformation to Codey-v2 format:**
+**Transformation to Kuza-v2 format:**
 1. Parse the `chat` field to extract the last USER turn as `"user"`.
 2. Extract `<functioncall>` JSON — map `"arguments"` → `"args"`.
 3. Map function name: generic API names (`get_weather`, `search_web`) → nearest
-   Codey-v2 tool.  Direct-execution functions (`run_code`, `execute_command`) →
+   Kuza-v2 tool.  Direct-execution functions (`run_code`, `execute_command`) →
    `shell`.  File-output functions → `write_file`.
-4. Discard examples where the function name has no plausible Codey-v2 equivalent.
+4. Discard examples where the function name has no plausible Kuza-v2 equivalent.
 
 **Name mapping table:**
-| Glaive function pattern | Codey-v2 tool |
+| Glaive function pattern | Kuza-v2 tool |
 |------------------------|---------------|
 | `*execute*`, `*run*`, `*command*` | `shell` |
 | `*write*`, `*create_file*`, `*save*` | `write_file` |
@@ -687,7 +687,7 @@ Raw:
   USER: "Run the python script at /tmp/test.py"
   ASSISTANT: <functioncall> {"name": "execute_code", "arguments": {"file": "/tmp/test.py"}}
 
-→ Codey-v2:
+→ Kuza-v2:
   {
     "user": "run the python script at /tmp/test.py",
     "tool_calls": [
@@ -707,11 +707,11 @@ Raw:
 **HF:** https://hf.co/datasets/NousResearch/hermes-function-calling-v1
 **License:** Apache-2.0 | **Size:** ~11K | **Downloads:** 43K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 High-quality curated dataset used to train the Hermes 2 Pro series — widely regarded
 as best-in-class for structured tool use.  Includes function-calling, JSON-mode, and
 agentic multi-step examples.  Smaller but higher signal-to-noise than Glaive.
-The JSON schema format closely mirrors Codey-v2's `args` dict structure.
+The JSON schema format closely mirrors Kuza-v2's `args` dict structure.
 
 **Schema:**
 ```json
@@ -742,7 +742,7 @@ The JSON schema format closely mirrors Codey-v2's `args` dict structure.
 **HF:** https://hf.co/datasets/lockon/xlam-function-calling-60k
 **License:** CC-BY-4.0 | **Size:** 60K | **Downloads:** 5.8K
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Produced by Salesforce's APIGen pipeline — each example was verified through three
 stages: format checking, live function execution, and semantic verification. This
 makes it one of the highest-correctness function-calling datasets available.
@@ -776,7 +776,7 @@ repo.  Strong coverage of chained/sequential tool calls.
 **HF:** https://hf.co/datasets/argilla/apigen-function-calling
 **License:** CC-BY-4.0 | **Size:** ~100K | **Downloads:** 1.9K
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 A merge of Salesforce xLAM-60k and argilla's own Synth-APIGen-v0.1, totalling
 100K+ examples. Provides volume redundancy and diversity across API domains.
 Ready-to-use parquet format with clean splits.
@@ -792,10 +792,10 @@ instruction hash before inserting to avoid vector duplicates in FAISS.
 **HF:** https://hf.co/datasets/iamtarun/python_code_instructions_18k_alpaca
 **License:** none stated (upstream sahil2801) | **Size:** 18K | **Downloads:** 116K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Dense Python-focused instruction dataset. Each example has a natural language
 instruction and a complete Python code solution. Directly maps to the most common
-Codey-v2 `write_file` pattern: "write a Python function that does X."
+Kuza-v2 `write_file` pattern: "write a Python function that does X."
 
 **Schema:**
 ```json
@@ -819,7 +819,7 @@ Raw:
   instruction: "Write a Python function to check if a string is a palindrome"
   output: "def is_palindrome(s):\n    return s == s[::-1]"
 
-→ Codey-v2:
+→ Kuza-v2:
   {
     "user": "write a python function to check if a string is a palindrome",
     "tool_calls": [
@@ -841,7 +841,7 @@ Raw:
 **HF:** https://hf.co/datasets/TokenBender/code_instructions_122k_alpaca_style
 **License:** Apache-2.0 | **Size:** 122K | **Downloads:** 37K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Large multilingual code instruction dataset (~122K examples). Covers Python,
 JavaScript, Bash, SQL, and more. The Bash/shell subset is especially valuable for
 building `shell` tool call coverage across non-Termux CLI commands (which become
@@ -870,7 +870,7 @@ training fodder after TermuxNormalizer post-processing).
 **HF:** https://hf.co/datasets/Nan-Do/instructional_code-search-net-python
 **License:** Apache-2.0 | **Size:** ~100K | **Downloads:** 5.1K
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Built on CodeSearchNet — pairs real GitHub Python functions with natural language
 docstrings. Provides two task types: (a) code → description (useful for `read_file`
 pattern: "explain what this file does") and (b) description → code (→ `write_file`).
@@ -899,11 +899,11 @@ The real-world code quality is higher than synthetic datasets.
 **HF:** https://hf.co/datasets/google-research-datasets/mbpp
 **License:** CC-BY-4.0 | **Size:** ~974 | **Downloads:** 9M+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 MBPP (Mostly Basic Python Problems) is a gold-standard benchmark with human-verified
 task descriptions, canonical solutions, and 3 test cases per problem. The test cases
 enable a two-step `write_file` + `shell` pattern: write the solution, then verify
-with tests. This is the most realistic approximation of Codey-v2's actual coding
+with tests. This is the most realistic approximation of Kuza-v2's actual coding
 workflow.
 
 **Schema:**
@@ -931,7 +931,7 @@ Raw:
   code: "def max_of_two(a, b):\n    return a if a > b else b"
   test_list: ["assert max_of_two(3, 4) == 4", "assert max_of_two(10, 2) == 10"]
 
-→ Codey-v2:
+→ Kuza-v2:
   {
     "user": "write a python function to find the maximum of two numbers",
     "tool_calls": [
@@ -952,7 +952,7 @@ Raw:
 **HF:** https://hf.co/datasets/evalplus/humanevalplus
 **License:** Apache-2.0 | **Size:** 164 | **Downloads:** 497K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 The hardened version of OpenAI HumanEval with 80× more test cases per problem.
 Small but authoritative. Each problem includes a function signature + docstring
 (clean instruction) and canonical solution. The extra tests make the 3-step
@@ -985,11 +985,11 @@ Small but authoritative. Each problem includes a function signature + docstring
 **HF:** https://hf.co/datasets/bigcode/bigcodebench
 **License:** Apache-2.0 | **Size:** 1140 | **Downloads:** 960K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 BigCodeBench-Instruct features natural language (NL-oriented) prompts that require
 integrating multiple Python standard-library and third-party packages. Each example
 has 5–6 test cases and near-100% test coverage. This is the most realistic dataset
-for training Codey-v2 on "write a complete, working Python program" tasks.
+for training Kuza-v2 on "write a complete, working Python program" tasks.
 
 **Schema:**
 ```json
@@ -1013,9 +1013,9 @@ for training Codey-v2 on "write a complete, working Python program" tasks.
 **HF:** https://hf.co/datasets/bigcode/humanevalpack
 **License:** MIT | **Size:** ~984 (6 langs × 164) | **Downloads:** 2.4M+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Multilingual extension of HumanEval covering Python, JS, Java, Go, C++, Rust.
-For Codey-v2 the Python split is the highest priority; JS is secondary (Node.js
+For Kuza-v2 the Python split is the highest priority; JS is secondary (Node.js
 runs in Termux). Provides 3 task types: synthesis, fixing (patch), and explanation
 (read+describe). The **fixing** task maps directly to `patch_file`.
 
@@ -1043,7 +1043,7 @@ runs in Termux). Provides 3 task types: synthesis, fixing (patch), and explanati
 **HF:** https://hf.co/datasets/yahma/alpaca-cleaned
 **License:** CC-BY-4.0 | **Size:** ~52K | **Downloads:** 921K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 The cleaned Alpaca dataset. Not code-specific, but covers a wide range of
 general task instructions including note-taking, lookup, and multi-step reasoning.
 Valuable for training the non-code tools: `note_save`, `note_forget`, and general
@@ -1066,11 +1066,11 @@ Valuable for training the non-code tools: `note_save`, `note_forget`, and genera
 **HF:** https://hf.co/datasets/microsoft/orca-agentinstruct-1M-v1
 **License:** CDLA-Permissive-2.0 | **Size:** ~1M | **Downloads:** 69K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 Microsoft's AgentInstruct dataset covering complex multi-step agentic tasks: text
 editing, creative writing, tool use, coding, and web-interaction simulations.
 Large scale (1M examples) with high diversity. The coding and tool-use subsets map
-directly to Codey-v2. Use this as a **secondary source** — sample strategically by
+directly to Kuza-v2. Use this as a **secondary source** — sample strategically by
 category rather than loading all 1M records.
 
 **Recommended subsets to sample:**
@@ -1092,11 +1092,11 @@ as `"user"`, last assistant action as tool call using the same classification ru
 **HF:** https://hf.co/datasets/m-a-p/Code-Feedback
 **License:** Apache-2.0 | **Size:** ~68K | **Downloads:** 29K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 OpenCodeInterpreter dataset. Contains multi-turn coding conversations where the
 user provides an instruction, the assistant generates code, executes it, sees the
 output, and refines. This execution loop pattern (write → run → see error → patch)
-is exactly the Codey-v2 agentic loop: `write_file` → `shell` → `patch_file`.
+is exactly the Kuza-v2 agentic loop: `write_file` → `shell` → `patch_file`.
 
 **Schema:**
 ```json
@@ -1124,7 +1124,7 @@ is exactly the Codey-v2 agentic loop: `write_file` → `shell` → `patch_file`.
 **HF:** https://hf.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard
 **License:** Apache-2.0 | **Size:** ~2.5K | **Downloads:** 127K+
 
-**Why useful for Codey-v2:**
+**Why useful for Kuza-v2:**
 BFCL is the canonical function-calling benchmark — used to rank LLMs on tool-use
 accuracy. Small, but the examples are human-curated and span diverse categories:
 simple calls, nested calls, parallel calls, and multi-turn. Use as a **validation
@@ -1175,7 +1175,7 @@ variants using pattern substitution:
 
 #### 14.3.2 Synthetic Multi-Step Coding Corpus (target: 3K examples)
 
-**Gap:** Most datasets have single-step responses. Codey-v2's orchestrator generates
+**Gap:** Most datasets have single-step responses. Kuza-v2's orchestrator generates
 multi-step plans (write + run + verify), but training data for this pattern is sparse.
 
 **Generation method:** Compose known single-step examples into sequences:

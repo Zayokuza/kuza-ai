@@ -1,5 +1,5 @@
 """
-Git helper for Codey-v2.
+Git helper for Kuza-v2.
 
 v2.5.5 — Phase 3: branch management, smart commit messages,
                    merge conflict detection and resolution.

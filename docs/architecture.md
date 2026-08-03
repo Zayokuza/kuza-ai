@@ -2,7 +2,7 @@
 
 ## Three-Model Design
 
-Codey-v2 runs three purpose-built models simultaneously, each on its own port:
+Kuza-v2 runs three purpose-built models simultaneously, each on its own port:
 
 | Model | Port | Role |
 |-------|------|------|
@@ -18,13 +18,13 @@ The 7B model handles all user-facing work. The 0.5B runs independently for task 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   CLI Client (codey2)                   │
+│                   CLI Client (kuza2)                   │
 │  User commands · flags · task queries · /status         │
 └─────────────────────────────────────────────────────────┘
                           │  Unix socket
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                Daemon Core (codeyd2)                    │
+│                Daemon Core (kuzad2)                    │
 │  asyncio event loop · signal handlers · socket server   │
 └─────────────────────────────────────────────────────────┘
           │                    │                    │
@@ -88,7 +88,7 @@ Conversation context is managed across four tiers:
 
 ### Context Compression
 
-When in-context token usage hits 55% of the context window, Codey compresses history:
+When in-context token usage hits 55% of the context window, Kuza compresses history:
 
 1. The 4 most recent messages are always kept intact.
 2. Pinned messages (file writes, errors, existing summaries) are never dropped.
@@ -102,22 +102,22 @@ This keeps the 7B model focused on current work without losing critical context.
 
 ## What Persists Between Sessions
 
-This table covers exactly what Codey saves, where it lives, and how long it lasts — so you know what context the model actually has when you start a new session.
+This table covers exactly what Kuza saves, where it lives, and how long it lasts — so you know what context the model actually has when you start a new session.
 
 | What | Where | Survives restart? | Expires? | How to clear |
 |------|-------|------------------|----------|--------------|
-| Last 6 turns of conversation | `~/.codey_sessions/<project-hash>.json` | Yes | After 2 hours of inactivity | `/clear` in-chat or `codey2 --clear-session` |
+| Last 6 turns of conversation | `~/.kuza_sessions/<project-hash>.json` | Yes | After 2 hours of inactivity | `/clear` in-chat or `kuza2 --clear-session` |
 | Project memory (`CODEY.md`) | `<project>/CODEY.md` | Yes | Never | Edit or delete the file manually |
-| Action log (every tool call) | `~/.codey-v2/state.db` | Yes | Never (append-only) | Delete `~/.codey-v2/state.db` |
+| Action log (every tool call) | `~/.kuza-v2/state.db` | Yes | Never (append-only) | Delete `~/.kuza-v2/state.db` |
 | Open files / working context | In-memory only | No | On exit | — |
 | File undo history | In-memory only | No | On exit | — |
-| Knowledge base embeddings | `~/.codey-v2/kb/` (if set up) | Yes | Never | `codey2 kb clear` |
+| Knowledge base embeddings | `~/.kuza-v2/kb/` (if set up) | Yes | Never | `kuza2 kb clear` |
 
-### What Codey does NOT do
+### What Kuza does NOT do
 
 - **Does not learn from your conversations.** The RAG index only contains what you explicitly load with `/load`, `/read`, or the knowledge base pipeline — not anything you've said or typed.
 - **Does not send data anywhere.** All state is local. The only exception is peer CLI escalation (Claude Code, Gemini CLI, Qwen CLI), which requires explicit confirmation before any files are shared.
-- **Does not auto-recover deep context on large projects.** The session window is 6 turns (expires in 2 hours). For long-running projects, `CODEY.md` is the primary source of persistent context — if it is sparse or missing, Codey starts each session with limited knowledge of your project.
+- **Does not auto-recover deep context on large projects.** The session window is 6 turns (expires in 2 hours). For long-running projects, `CODEY.md` is the primary source of persistent context — if it is sparse or missing, Kuza starts each session with limited knowledge of your project.
 
 ### Practical advice for larger projects
 
@@ -130,9 +130,9 @@ This table covers exactly what Codey saves, where it lives, and how long it last
 ## Project Structure
 
 ```
-~/codey-v2/
-├── codey2                   # CLI client
-├── codeyd2                  # Daemon manager
+~/kuza-v2/
+├── kuza2                   # CLI client
+├── kuzad2                  # Daemon manager
 ├── main.py                  # Entry point
 ├── core/
 │   ├── daemon.py            # Daemon core and Unix socket server

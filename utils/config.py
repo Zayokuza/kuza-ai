@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
-CODEY_DIR = Path(os.environ.get("CODEY_DIR", Path.home() / "codey-v2"))
+CODEY_DIR = Path(os.environ.get("CODEY_DIR", Path.home() / "kuza-v2"))
 MODEL_PATH = Path(os.environ.get(
     "CODEY_MODEL",
     Path.home() / "models" / "qwen2.5-coder-7b" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
@@ -121,7 +121,7 @@ RETRIEVAL_CONFIG = {
 }
 
 CODEY_VERSION = "2.0.0"
-CODEY_NAME    = "CODEY-V2"
+CODEY_NAME = "KUZA"
 
 # ── OpenRouter backend (optional) ────────────────────────────────────────────
 # ── Remote backend selection ─────────────────────────────────────────────────
@@ -175,7 +175,7 @@ UNLIMITEDCLAUDE_BASE_URL      = os.environ.get("UNLIMITEDCLAUDE_BASE_URL", "http
 # entirely separate from the 7B agent server on port 8080.
 PLANNER_MODEL_PATH = Path(os.environ.get(
     "CODEY_PLANNER_MODEL",
-    Path.home() / "models" / "qwen2.5-0.5b" / "planner-codey.gguf"
+    Path.home() / "models" / "qwen2.5-0.5b" / "planner-kuza.gguf"
 ))
 PLANND_SERVER_PORT = int(os.environ.get("CODEY_PLANND_PORT", "8081"))
 

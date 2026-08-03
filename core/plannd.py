@@ -1,5 +1,5 @@
 """
-plannd — Task planner for Codey-v2
+plannd — Task planner for Kuza-v2
 
 Provides get_plan(): sends a user prompt to the 0.5B model on port 8081
 and returns a numbered step list for the 7B agent to execute.
@@ -193,8 +193,8 @@ def _get_plan_remote(prompt: str) -> Optional[List[str]]:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "HTTP-Referer": "https://github.com/codey-v2",
-            "X-Title": "Codey-v2",
+            "HTTP-Referer": "https://github.com/kuza-v2",
+            "X-Title": "Kuza-v2",
         }
         request = _req.Request(
             f"{base_url}/chat/completions",

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Codey-v2 — Full Installation Script
+# Kuza-v2 — Full Installation Script
 #
-# Installs everything needed to run Codey-v2 on Termux (Android) or Linux:
+# Installs everything needed to run Kuza-v2 on Termux (Android) or Linux:
 #   • System packages (pkg / apt / dnf / pacman)
 #   • Python dependencies
 #   • llama.cpp (built from source)
 #   • All three models:
 #       7B  — Qwen2.5-Coder-7B-Instruct Q4_K_M  (official Qwen HF)
-#       0.5B — planner-codey  (Ishabdullah HF, falls back to Qwen official)
+#       0.5B — planner-kuza  (Ishabdullah HF, falls back to Qwen official)
 #       Embed — nomic-embed-text-v1.5 Q4_K_M    (nomic-ai HF)
 #   • PATH, executable bits, daemon directory
 #
@@ -38,16 +38,16 @@ EMBED_MODEL_DIR="$MODELS_DIR/nomic-embed"
 
 # Filenames — must match utils/config.py exactly
 PRIMARY_MODEL_FILE="qwen2.5-coder-7b-instruct-q4_k_m.gguf"
-SECONDARY_MODEL_FILE="planner-codey.gguf"          # ← matches PLANNER_MODEL_PATH in config.py
+SECONDARY_MODEL_FILE="planner-kuza.gguf"          # ← matches PLANNER_MODEL_PATH in config.py
 EMBED_MODEL_FILE="nomic-embed-text-v1.5.Q4_K_M.gguf"
 
 # ── Model URLs ────────────────────────────────────────────────────────────────
 # 7B coder — official Qwen HF
 PRIMARY_MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
 
-# 0.5B planner — Ishymoto/qwen2.5-0.5b-codey-planner-gguf (custom fine-tune)
+# 0.5B planner — Ishymoto/qwen2.5-0.5b-kuza-planner-gguf (custom fine-tune)
 # Fallback to official Qwen if HF is unreachable.
-SECONDARY_MODEL_URL="https://huggingface.co/Ishymoto/qwen2.5-0.5b-codey-planner-gguf/resolve/main/qwen2.5-0.5b-instruct.Q4_K_M.gguf"
+SECONDARY_MODEL_URL="https://huggingface.co/Ishymoto/qwen2.5-0.5b-kuza-planner-gguf/resolve/main/qwen2.5-0.5b-instruct.Q4_K_M.gguf"
 SECONDARY_MODEL_FALLBACK_URL="https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf"
 
 # Embedding model — nomic-ai HF
@@ -122,7 +122,7 @@ install_python_deps() {
         "filelock>=3.13.0" \
         "tqdm>=4.65.0" \
         "hnswlib>=0.7.0" \
-        || print_warning "Some pip packages failed — Codey-v2 may still work"
+        || print_warning "Some pip packages failed — Kuza-v2 may still work"
 
     print_success "Core Python packages installed"
 
@@ -242,9 +242,9 @@ download_models() {
     else
         [ -f "$SECONDARY_PATH" ] && rm -f "$SECONDARY_PATH"
         all_present=false
-        print_status "0.5B planner model — Ishymoto/qwen2.5-0.5b-codey-planner-gguf (~398 MB)"
+        print_status "0.5B planner model — Ishymoto/qwen2.5-0.5b-kuza-planner-gguf (~398 MB)"
 
-        if ! download_file "$SECONDARY_MODEL_URL" "$SECONDARY_PATH" "qwen2.5-0.5b-codey-planner Q4_K_M"; then
+        if ! download_file "$SECONDARY_MODEL_URL" "$SECONDARY_PATH" "qwen2.5-0.5b-kuza-planner Q4_K_M"; then
             print_warning "HF unreachable — falling back to official Qwen2.5-0.5B"
             rm -f "$SECONDARY_PATH"
             download_file "$SECONDARY_MODEL_FALLBACK_URL" "$SECONDARY_PATH" "Qwen2.5-0.5B (fallback)" \
@@ -269,16 +269,16 @@ download_models() {
 # ── 6. Executables & PATH ─────────────────────────────────────────────────────
 make_executable() {
     print_step "Permissions"
-    chmod +x "$CODEY_V2_DIR/codey2"
-    chmod +x "$CODEY_V2_DIR/codeyd2"
+    chmod +x "$CODEY_V2_DIR/kuza2"
+    chmod +x "$CODEY_V2_DIR/kuzad2"
     chmod +x "$CODEY_V2_DIR/install.sh"
     [ -f "$CODEY_V2_DIR/gui/start.sh" ] && chmod +x "$CODEY_V2_DIR/gui/start.sh"
     print_success "Executable bits set"
 }
 
 setup_daemon_dir() {
-    mkdir -p "$HOME/.codey-v2"
-    print_success "Daemon directory: $HOME/.codey-v2"
+    mkdir -p "$HOME/.kuza-v2"
+    print_success "Daemon directory: $HOME/.kuza-v2"
 }
 
 setup_path() {
@@ -290,12 +290,12 @@ setup_path() {
         SHELL_CONFIG="$HOME/.bashrc"
     fi
 
-    if grep -q "codey-v2" "$SHELL_CONFIG" 2>/dev/null; then
+    if grep -q "kuza-v2" "$SHELL_CONFIG" 2>/dev/null; then
         print_status "PATH already configured in $SHELL_CONFIG"
     else
         {
             echo ""
-            echo "# Codey-v2"
+            echo "# Kuza-v2"
             echo "export PATH=\"$CODEY_V2_DIR:\$PATH\""
         } >> "$SHELL_CONFIG"
         print_success "Added $CODEY_V2_DIR to PATH in $SHELL_CONFIG"
@@ -330,8 +330,8 @@ verify_installation() {
         && print_success "Embedding model: ready" \
         || print_warning "Embedding model: missing"
 
-    command -v codey2  &>/dev/null && print_success "codey2:  in PATH"  || print_warning "codey2:  not in PATH yet (restart terminal)"
-    command -v codeyd2 &>/dev/null && print_success "codeyd2: in PATH"  || print_warning "codeyd2: not in PATH yet (restart terminal)"
+    command -v kuza2  &>/dev/null && print_success "kuza2:  in PATH"  || print_warning "kuza2:  not in PATH yet (restart terminal)"
+    command -v kuzad2 &>/dev/null && print_success "kuzad2: in PATH"  || print_warning "kuzad2: not in PATH yet (restart terminal)"
 }
 
 # ── 8. Completion message ─────────────────────────────────────────────────────
@@ -346,13 +346,13 @@ print_completion() {
     echo -e "${CYAN}${BOLD}QUICK START${NC}"
     echo
     echo -e "  Reload shell:   ${BLUE}source $SHELL_CONFIG${NC}"
-    echo -e "  Start daemon:   ${BLUE}codeyd2 start${NC}"
-    echo -e "  Run Codey:      ${BLUE}codey2${NC}"
+    echo -e "  Start daemon:   ${BLUE}kuzad2 start${NC}"
+    echo -e "  Run Kuza:      ${BLUE}kuza2${NC}"
     echo -e "    → opens the interactive TUI ${BOLD}and${NC} the browser GUI automatically"
     echo -e "    → browser:    ${BLUE}http://localhost:8888${NC}"
     echo
-    echo -e "  Stop daemon:    ${BLUE}codeyd2 stop${NC}"
-    echo -e "  Daemon status:  ${BLUE}codeyd2 status${NC}"
+    echo -e "  Stop daemon:    ${BLUE}kuzad2 stop${NC}"
+    echo -e "  Daemon status:  ${BLUE}kuzad2 status${NC}"
     echo
 
     echo -e "${CYAN}${BOLD}BACKEND SWITCHING  (local models are the default — no key needed)${NC}"
@@ -420,7 +420,7 @@ main() {
 
     echo -e "${BLUE}${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║           Codey-v2 Installation Script                       ║"
+    echo "║           Kuza-v2 Installation Script                       ║"
     echo "║   Persistent local AI coding agent for Termux / Android      ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"

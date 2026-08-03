@@ -11,15 +11,15 @@ from core.memory_v2 import memory as _mem
 
 _DEFAULT_IGNORE = frozenset({
     ".env", "*.pem", "*.key", ".git", "__pycache__",
-    ".pytest_cache", ".codey_sessions", "node_modules", ".venv"
+    ".pytest_cache", ".kuza_sessions", "node_modules", ".venv"
 })
 
 # Cache: { cwd_str: (mtime_or_None, frozenset_of_patterns) }
 _ignore_cache: dict = {}
 
 def _load_ignore_patterns(cwd: str) -> frozenset:
-    """Load and cache .codeyignore patterns for a given cwd."""
-    ignore_file = Path(cwd) / ".codeyignore"
+    """Load and cache .kuzaignore patterns for a given cwd."""
+    ignore_file = Path(cwd) / ".kuzaignore"
     mtime = ignore_file.stat().st_mtime if ignore_file.exists() else None
     cached = _ignore_cache.get(cwd)
     if cached and cached[0] == mtime:
@@ -38,7 +38,7 @@ def _load_ignore_patterns(cwd: str) -> frozenset:
     return result
 
 def is_ignored(path):
-    """Check if a file should be ignored based on .codeyignore or defaults."""
+    """Check if a file should be ignored based on .kuzaignore or defaults."""
     p = Path(path).expanduser().resolve()
     ignore_patterns = _load_ignore_patterns(os.getcwd())
             
@@ -65,7 +65,7 @@ def load_file(path):
     """Load a single file into memory."""
     if is_ignored(path):
         warning(f"Ignored: {path}")
-        return f"[ERROR] File is ignored by .codeyignore: {path}"
+        return f"[ERROR] File is ignored by .kuzaignore: {path}"
 
     p = Path(path).expanduser()
     if not p.exists():
@@ -152,8 +152,8 @@ def detect_filenames(text):
     return existing
 
 _SELF_REVIEW_KEYWORDS = [
-    "review yourself", "review codey", "audit yourself", "audit codey",
-    "analyze yourself", "analyse yourself", "analyze codey", "analyse codey",
+    "review yourself", "review kuza", "audit yourself", "audit kuza",
+    "analyze yourself", "analyse yourself", "analyze kuza", "analyse kuza",
     "review your own", "examine yourself", "assess yourself",
     "review your code", "your codebase", "your source",
 ]

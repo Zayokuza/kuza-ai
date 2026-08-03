@@ -1,5 +1,5 @@
 """
-nomic-embed-text client — calls the existing Codey-v2 embed server on port 8082.
+nomic-embed-text client — calls the existing Kuza-v2 embed server on port 8082.
 
 Reuses the same llama-server instance that core/embeddings.py uses for RAG,
 so no additional processes are needed.

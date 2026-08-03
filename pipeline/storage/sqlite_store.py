@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 class SQLiteMetadataStore:
     """
-    Stores and retrieves Codey-v2 output records by vector index ID.
+    Stores and retrieves Kuza-v2 output records by vector index ID.
 
     Args:
         db_path: Path to the SQLite database file

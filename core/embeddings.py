@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Embeddings for Codey-v2 hierarchical memory.
+Embeddings for Kuza-v2 hierarchical memory.
 
 Uses sentence-transformers for semantic search:
 - Embed text chunks into vectors
@@ -133,7 +133,7 @@ class EmbeddingStore:
     
     def __init__(self, db_path: Path = None):
         if db_path is None:
-            db_dir = Path.home() / ".codey-v2"
+            db_dir = Path.home() / ".kuza-v2"
             db_dir.mkdir(parents=True, exist_ok=True)
             db_path = db_dir / "state.db"
         self.db_path = db_path

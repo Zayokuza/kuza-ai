@@ -1,6 +1,6 @@
 """
 Session persistence — save and restore conversation history between sessions.
-Sessions stored in ~/.codey_sessions/ as JSON files named by project path.
+Sessions stored in ~/.kuza_sessions/ as JSON files named by project path.
 """
 import json
 import re
@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 from utils.logger import success, info, warning
 
-SESSIONS_DIR = Path.home() / ".codey_sessions"
+SESSIONS_DIR = Path.home() / ".kuza_sessions"
 
 # Each entry: (compiled pattern, replacement string)
 # For key=value pairs use group \1 to keep the key, redact the value.

@@ -1,6 +1,6 @@
-# importantdoc.md — Qwen2.5-Coder-7B-Instruct Prompting Guide for Codey-v2
+# importantdoc.md — Qwen2.5-Coder-7B-Instruct Prompting Guide for Kuza-v2
 
-This document captures everything you need to know to get correct tool calls, proper instruction following, and reliable code generation from the exact model Codey-v2 runs: **Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf** via llama-server.
+This document captures everything you need to know to get correct tool calls, proper instruction following, and reliable code generation from the exact model Kuza-v2 runs: **Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf** via llama-server.
 
 ---
 
@@ -45,13 +45,13 @@ Qwen2.5-Coder-Instruct uses ChatML as its native conversation format. llama-serv
 | `<\|im_end\|>` | 151645 | Turn boundary end |
 | `<\|endoftext\|>` | 151643 | Document end |
 
-### Stop sequences Codey must send:
+### Stop sequences Kuza must send:
 ```python
 stop = ["<|im_end|>", "<|im_start|>", "<|endoftext|>"]
 ```
 Without these, the model will continue generating the next turn itself (role-play leakage).
 
-### Codey's current config (`utils/config.py`):
+### Kuza's current config (`utils/config.py`):
 ```python
 "stop": ["<|im_end|>", "<|im_start|>", "\nUser:", "\nHuman:", "\nA:"]
 ```
@@ -59,10 +59,10 @@ Without these, the model will continue generating the next turn itself (role-pla
 
 ---
 
-## 3. Sampling Parameters — Official vs. Codey
+## 3. Sampling Parameters — Official vs. Kuza
 
 ### Qwen's official defaults for Instruct models:
-| Parameter | Official Default | Codey Current | Recommendation |
+| Parameter | Official Default | Kuza Current | Recommendation |
 |---|---|---|---|
 | `temperature` | 0.7 | 0.2 | Raise to 0.7 for creative/tool tasks |
 | `top_p` | 0.8 | 0.95 | Lower to 0.8 |
@@ -105,7 +105,7 @@ MODEL_CONFIG = {
 ### Length limits:
 - The 7B model has a **recency bias** — it attends most strongly to the last ~2000 tokens of context
 - System prompts over ~800 tokens risk being partially ignored, especially early rules
-- Codey's current system prompt: ~400 tokens (base) + injected context layers
+- Kuza's current system prompt: ~400 tokens (base) + injected context layers
 - **Keep the base system prompt under 600 tokens**; let layered_prompt.py handle dynamic injection
 
 ### Rule placement:
@@ -119,7 +119,7 @@ MODEL_CONFIG = {
 - Multi-level nested instructions
 - Abstract constraints ("be helpful but not verbose and never repeat yourself but do acknowledge...")
 
-### Codey's current system prompt structure (`prompts/system_prompt.py`):
+### Kuza's current system prompt structure (`prompts/system_prompt.py`):
 1. Identity + capabilities (top)
 2. Slash commands
 3. Tool call format + tool list
@@ -129,7 +129,7 @@ MODEL_CONFIG = {
 
 ## 5. Tool Call Format — Custom vs. Native
 
-### Why Codey uses `<tool>...</tool>` instead of OpenAI function calling:
+### Why Kuza uses `<tool>...</tool>` instead of OpenAI function calling:
 
 Qwen2.5-Coder-7B-Instruct was trained on function calling via a special `<tool_call>` format used in Qwen-Agent. The llama.cpp HTTP server does NOT support this natively — it would require the `/v1/chat/completions` `tools` parameter which llama-server partially implements but inconsistently.
 
@@ -149,7 +149,7 @@ Both "ONLY this block" and "nothing else" are necessary — without explicit exc
 
 ### Known 7B tool call failure modes:
 
-| Failure | Cause | Codey's Fix |
+| Failure | Cause | Kuza's Fix |
 |---|---|---|
 | Explains code instead of write_file | System prompt not explicit; low temperature safe path | "ACT don't explain" rule + hallucination retry |
 | Triple-quote JSON `"""..."""` | Model outputs Python syntax inside JSON | `_fix_triple_quotes()` in `extract_json()` |
@@ -253,7 +253,7 @@ Skills are markdown files cloned from external repos into `knowledge/skills/`. T
 ### Setup:
 ```bash
 bash tools/setup_skills.sh          # clone skill repos
-codeyd2 start                       # start embed server
+kuzad2 start                       # start embed server
 python3 -c "from tools.kb_semantic import build_semantic_index; build_semantic_index()"
 ```
 
@@ -307,7 +307,7 @@ The model does NOT have native knowledge of what skills exist. Skills are inject
 
 ---
 
-## 10. Codey Config — Current State vs. Recommendations
+## 10. Kuza Config — Current State vs. Recommendations
 
 ### `utils/config.py` — key settings:
 
@@ -352,7 +352,7 @@ THERMAL_CONFIG = {
 
 ## 11. Quick Reference — Prompting Checklist
 
-When modifying Codey's prompting pipeline, verify:
+When modifying Kuza's prompting pipeline, verify:
 
 - [ ] Using `/v1/chat/completions` (not `/completion`) — ChatML applied automatically
 - [ ] Stop sequences include `<|im_end|>` and `<|im_start|>`
@@ -374,4 +374,4 @@ When modifying Codey's prompting pipeline, verify:
 - Qwen2.5 technical report: https://arxiv.org/abs/2409.12186
 - llama.cpp server docs: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
 - ChatML format: https://huggingface.co/docs/transformers/chat_templating
-- Codey-v2 architecture: `CLAUDE.md` (this repo)
+- Kuza-v2 architecture: `CLAUDE.md` (this repo)

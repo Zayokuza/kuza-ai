@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Peer CLI escalation for Codey-v2.
+Peer CLI escalation for Kuza-v2.
 
-When Codey exhausts its retry budget on a task, it can escalate to an
+When Kuza exhausts its retry budget on a task, it can escalate to an
 external AI coding CLI: Claude Code, Gemini CLI, or Qwen CLI.
 
 Flow:
-  1. Codey hits max retries on a task
+  1. Kuza hits max retries on a task
   2. PeerCLIManager selects best CLI for the task type
   3. Rich confirmation prompt — user can approve, deny, redirect, or pick different CLI
   4. Approved: CLI runs in the foreground terminal (user can interact live)
      All output is captured to a temp file via `tee`
-  5. When CLI exits, Codey reads captured output and summarizes
+  5. When CLI exits, Kuza reads captured output and summarizes
   6. Work continues with the result as context
 """
 
@@ -170,33 +170,33 @@ class PeerCLIManager:
         """Build a context-rich, directive prompt to pass to the external CLI.
 
         Requirements:
-        - State what Codey already tried and failed at
+        - State what Kuza already tried and failed at
         - Explicitly request complete file content (not analysis, not a diff)
-        - Specify the exact output format Codey will parse to extract code
+        - Specify the exact output format Kuza will parse to extract code
         - Forbid asking questions or seeking confirmation
         """
         lines = [
             f"Task: {user_message}",
             "",
-            "Codey-v2 has already attempted this and exhausted its retry budget.",
+            "Kuza-v2 has already attempted this and exhausted its retry budget.",
             "You are responding to an automated system. Do NOT ask for permission.",
             "Do NOT ask clarifying questions. Act immediately.",
         ]
         if files:
             lines.append(f"\nFiles involved: {', '.join(f for f in files if f)}")
         if errors:
-            lines.append("\nErrors from Codey's previous attempts:")
+            lines.append("\nErrors from Kuza's previous attempts:")
             for e in errors[-3:]:
                 lines.append(f"  • {e[:300]}")
         lines.append(
-            "\nOUTPUT FORMAT (required — Codey parses this automatically):\n"
+            "\nOUTPUT FORMAT (required — Kuza parses this automatically):\n"
             "For each file to create or modify, use this exact format:\n\n"
             "**`filename.py`**\n"
             "```python\n"
             "# complete file content here\n"
             "```\n\n"
             "Write COMPLETE file content — no stubs, no placeholders, no '...'.\n"
-            "Codey will write these files to disk automatically."
+            "Kuza will write these files to disk automatically."
         )
         return "\n".join(lines)
 
@@ -213,14 +213,14 @@ class PeerCLIManager:
           (True,       None)         — proceed with suggested CLI
           (False,      None)         — skip escalation
           ("switch",   cli_name)     — user wants a specific different CLI
-          ("redirect", instruction)  — user gave Codey a new instruction
+          ("redirect", instruction)  — user gave Kuza a new instruction
         """
         from utils.logger import console
         available_names = [c.name for c in self.available()]
         others = [n for n in available_names if n != cli.name]
 
         separator()
-        console.print("\n[bold yellow]  ⚠  Codey hit max retries and needs help.[/bold yellow]")
+        console.print("\n[bold yellow]  ⚠  Kuza hit max retries and needs help.[/bold yellow]")
         console.print(f"  Task:       [dim]{user_message[:80]}{'…' if len(user_message) > 80 else ''}[/dim]")
         console.print(f"  Suggest:    [bold cyan]{cli.description}[/bold cyan]  [dim]({task_type} task)[/dim]")
         if others:
@@ -232,7 +232,7 @@ class PeerCLIManager:
         if others:
             console.print(f"    [cyan]{' | '.join(others)}[/cyan]"
                           f"{'':>4}Use that CLI instead")
-        console.print(f"    [cyan]<any text>[/cyan]         Tell Codey to try differently\n")
+        console.print(f"    [cyan]<any text>[/cyan]         Tell Kuza to try differently\n")
 
         try:
             ans = console.input("  → ").strip()
@@ -247,12 +247,12 @@ class PeerCLIManager:
         by_name = {c.name: c for c in self.available()}
         if ans.lower() in by_name:
             return "switch", ans.lower()
-        # Otherwise treat as a redirect instruction to Codey
+        # Otherwise treat as a redirect instruction to Kuza
         return "redirect", ans
 
     def call(self, cli: PeerCLI, prompt: str) -> str:
         """
-        Open the peer CLI inside Codey's terminal via a PTY, auto-type the
+        Open the peer CLI inside Kuza's terminal via a PTY, auto-type the
         prompt, let the user interact freely, capture everything it outputs.
         Returns the full captured output as a string.
         """
@@ -271,7 +271,7 @@ class PeerCLIManager:
         return bool(output and output.startswith("[PEER_ERROR:"))
 
     def summarize_result(self, cli_name: str, output: str, original_task: str) -> str:
-        """Package the peer CLI output for injection into Codey's context."""
+        """Package the peer CLI output for injection into Kuza's context."""
         if not output or len(output.strip()) < 10:
             return f"[Peer: {cli_name} produced no readable output]"
         if self.is_peer_error(output):
@@ -307,7 +307,7 @@ def escalate(
 
     Returns:
       - Summary string to inject into agent context   (peer ran successfully)
-      - "[redirect]: <instruction>"                    (user wants Codey to try differently)
+      - "[redirect]: <instruction>"                    (user wants Kuza to try differently)
       - None                                           (user skipped / no CLIs available)
     """
     mgr = get_peer_cli_manager()
@@ -350,7 +350,7 @@ def escalate(
             prompt = mgr.build_prompt(user_message, errors, files)
             output = mgr.call(cli, prompt)
             summary = mgr.summarize_result(cli.name, output, user_message)
-            success(f"Peer CLI ({cli.name}) done — Codey is reading the result…")
+            success(f"Peer CLI ({cli.name}) done — Kuza is reading the result…")
             return summary
 
         # Shouldn't reach here, but skip and try next

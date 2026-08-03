@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-System monitor for Codey-v2 TUI.
+System monitor for Kuza-v2 TUI.
 
 Reads CPU%, RAM, and CPU/SoC temperature in a background thread.
 Provides a Rich renderable for live display and a terminal-title updater.
@@ -113,7 +113,7 @@ class SystemMonitor:
             parts.append(f"T {temp:.0f}°C")
         bar = "  ·  ".join(parts)
         try:
-            sys.stdout.write(f"\033]0;Codey  {bar}\007")
+            sys.stdout.write(f"\033]0;Kuza  {bar}\007")
             sys.stdout.flush()
         except Exception:
             pass
@@ -163,7 +163,7 @@ class SystemMonitor:
             val = psutil.cpu_percent(interval=None)
             if val > 0.0:
                 return val
-        except ImportError:
+        except Exception:
             pass
         return self._read_cpu_proc()
 

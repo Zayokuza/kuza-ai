@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fine-tuning data preparation for Codey-v2.
+Fine-tuning data preparation for Kuza-v2.
 
 Exports interaction data for off-device fine-tuning using Unsloth + Colab.
 Generates ShareGPT-style JSONL datasets and ready-to-run Colab notebooks.
@@ -33,7 +33,7 @@ from core.memory_v2 import memory as _mem
 
 class DatasetCurator:
     """
-    Curates high-quality fine-tuning examples from Codey-v2 interaction history.
+    Curates high-quality fine-tuning examples from Kuza-v2 interaction history.
     
     Filters by:
     - Successful interactions (no errors, task completed)
@@ -181,7 +181,7 @@ class DatasetCurator:
                 {"role": "assistant", "content": assistant_msg}
             ],
             "metadata": {
-                "source": "codey-v2",
+                "source": "kuza-v2",
                 "quality": action.get("_quality", 0.5),
                 "timestamp": action.get("timestamp", 0),
                 "tools_used": action.get("tools_used", []),
@@ -195,7 +195,7 @@ class DatasetCurator:
         learning = get_learning_manager()
         prefs = learning.get_all_preferences()
         
-        parts = ["You are Codey-v2, a helpful AI coding assistant."]
+        parts = ["You are Kuza-v2, a helpful AI coding assistant."]
         
         # Add learned preferences
         if prefs.get("test_framework"):
@@ -233,20 +233,20 @@ def export_dataset(
     
     if model_variant == "both":
         # Export single combined file
-        output_file = output_dir / "codey-finetune-combined.jsonl"
+        output_file = output_dir / "kuza-finetune-combined.jsonl"
         count = _write_jsonl(examples, output_file)
         return str(output_file), count
     
     elif model_variant == "1.5b":
         # Filter for simpler examples (single-turn, style-focused)
         simple = [e for e in examples if len(e["conversations"]) <= 3]
-        output_file = output_dir / "codey-finetune-1.5b.jsonl"
+        output_file = output_dir / "kuza-finetune-1.5b.jsonl"
         count = _write_jsonl(simple, output_file)
         return str(output_file), count
     
     elif model_variant == "7b":
         # Include complex multi-turn examples
-        output_file = output_dir / "codey-finetune-7b.jsonl"
+        output_file = output_dir / "kuza-finetune-7b.jsonl"
         count = _write_jsonl(examples, output_file)
         return str(output_file), count
     
@@ -268,12 +268,12 @@ def _write_jsonl(examples: List[Dict], output_file: Path) -> int:
 # Colab Notebook Generation
 # =============================================================================
 
-UNSLOTH_NOTEBOOK_TEMPLATE = '''# Codey-v2 Fine-tuning with Unsloth
+UNSLOTH_NOTEBOOK_TEMPLATE = '''# Kuza-v2 Fine-tuning with Unsloth
 # Model: {model_name}
 # Generated: {generated_date}
 
 """
-This notebook fine-tunes {model_name} on your Codey-v2 interaction data.
+This notebook fine-tunes {model_name} on your Kuza-v2 interaction data.
 
 Requirements:
 - Google Colab free tier (T4 GPU, 16GB VRAM)
@@ -281,10 +281,10 @@ Requirements:
 - Your exported JSONL dataset
 
 Steps:
-1. Upload your codey-finetune-*.jsonl file
+1. Upload your kuza-finetune-*.jsonl file
 2. Run all cells
 3. Download the LoRA adapter
-4. Import back to Codey-v2 with: codey2 --import-lora /path/to/adapter
+4. Import back to Kuza-v2 with: kuza2 --import-lora /path/to/adapter
 
 Estimated time: 1-4 hours on free T4 GPU
 """
@@ -301,7 +301,7 @@ Estimated time: 1-4 hours on free T4 GPU
 from google.colab import files
 import json
 
-print("Upload your codey-finetune-*.jsonl file:")
+print("Upload your kuza-finetune-*.jsonl file:")
 uploaded = files.upload()
 
 # Read the uploaded file
@@ -396,28 +396,28 @@ trainer.train()
 # Step 7: Save and Download Adapter
 # ─────────────────────────────────────────────────────────────────────────────
 # Save the LoRA adapter
-adapter_path = "codey-lora-adapter"
+adapter_path = "kuza-lora-adapter"
 model.save_pretrained(adapter_path)
 tokenizer.save_pretrained(adapter_path)
 
 # Create a zip file for download
 import shutil
-shutil.make_archive("codey-lora-adapter", "zip", adapter_path)
+shutil.make_archive("kuza-lora-adapter", "zip", adapter_path)
 
 # Download
-files.download("codey-lora-adapter.zip")
+files.download("kuza-lora-adapter.zip")
 
 print("""
 ─────────────────────────────────────────────────────────────────
 ✓ Training complete!
 
 Next steps:
-1. Download the codey-lora-adapter.zip file
+1. Download the kuza-lora-adapter.zip file
 2. Extract it on your device
-3. Import to Codey-v2: codey2 --import-lora /path/to/codey-lora-adapter
+3. Import to Kuza-v2: kuza2 --import-lora /path/to/kuza-lora-adapter
 
 To merge with base model (optional):
-  python merge_adapter.py --base {model_id} --adapter codey-lora-adapter --output merged-model
+  python merge_adapter.py --base {model_id} --adapter kuza-lora-adapter --output merged-model
 ─────────────────────────────────────────────────────────────────
 """)
 '''
@@ -450,11 +450,11 @@ def generate_notebook(
     if model_variant == "1.5b":
         model_name = "Qwen2.5-1.5B-Instruct"
         model_id = "unsloth/Qwen2.5-1.5B-Instruct-bnb-4bit"
-        notebook_name = "codey-finetune-qwen-coder-1.5b.ipynb"
+        notebook_name = "kuza-finetune-qwen-coder-1.5b.ipynb"
     elif model_variant == "7b":
         model_name = "Qwen2.5-Coder-7B-Instruct"
         model_id = "unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit"
-        notebook_name = "codey-finetune-qwen-coder-7b.ipynb"
+        notebook_name = "kuza-finetune-qwen-coder-7b.ipynb"
     else:
         raise ValueError(f"Unknown model variant: {model_variant}")
     
@@ -521,7 +521,7 @@ def print_instructions(
     
     instructions = f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                    Codey-v2 Fine-tuning Workflow                             ║
+║                    Kuza-v2 Fine-tuning Workflow                             ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 
 ✓ Dataset exported: {dataset_path}
@@ -552,22 +552,22 @@ STEP 3: Train
 STEP 4: Download Adapter
 ────────────────────────────────────────────────────────────────────────────────
   1. After training completes, the adapter will auto-download
-  2. File: codey-lora-adapter.zip
+  2. File: kuza-lora-adapter.zip
   3. Transfer to your Android device
 
 ────────────────────────────────────────────────────────────────────────────────
-STEP 5: Import to Codey-v2
+STEP 5: Import to Kuza-v2
 ────────────────────────────────────────────────────────────────────────────────
   On your device:
   
   1. Extract the zip file:
-     unzip codey-lora-adapter.zip
+     unzip kuza-lora-adapter.zip
   
   2. Import the adapter:
-     codey2 --import-lora /path/to/codey-lora-adapter --model {model_variant}
+     kuza2 --import-lora /path/to/kuza-lora-adapter --model {model_variant}
   
   3. Test the fine-tuned model:
-     codey2 "test the new model"
+     kuza2 "test the new model"
 
 ────────────────────────────────────────────────────────────────────────────────
 TROUBLESHOOTING
@@ -613,7 +613,7 @@ def prepare_finetune_data(
         Dict with paths to generated files
     """
     if output_dir is None:
-        output_dir = str(Path.home() / "Downloads" / "codey-finetune")
+        output_dir = str(Path.home() / "Downloads" / "kuza-finetune")
     
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)

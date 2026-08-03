@@ -42,7 +42,7 @@ def setup_file_logging(log_file: str):
     """Set up file logging for daemon mode."""
     global _file_handler, _file_logger
     
-    _file_logger = logging.getLogger("codey_daemon")
+    _file_logger = logging.getLogger("kuza_daemon")
     _file_logger.setLevel(logging.DEBUG)
     
     _file_handler = logging.FileHandler(log_file, mode='a')

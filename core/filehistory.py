@@ -1,5 +1,5 @@
 """
-File history — stores backups of files before Codey writes them.
+File history — stores backups of files before Kuza writes them.
 Powers /undo and /diff commands.
 """
 import os

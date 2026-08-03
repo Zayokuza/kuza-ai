@@ -166,7 +166,7 @@ _MULTISTEP_PATTERNS = [
                 "app = Flask(__name__)\n\n"
                 "@app.route('/')\n"
                 "def index():\n"
-                "    return 'Hello from Codey!'\n\n"
+                "    return 'Hello from Kuza!'\n\n"
                 "if __name__ == '__main__':\n"
                 "    app.run(port=9000)\n"
             )}},

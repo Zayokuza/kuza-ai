@@ -1,7 +1,7 @@
 """
 Tool call schema validator.
 
-Ensures every generated tool call conforms exactly to the Codey-v2 spec
+Ensures every generated tool call conforms exactly to the Kuza-v2 spec
 before it enters the output JSONL or vector store.
 """
 
@@ -22,7 +22,7 @@ TOOL_SCHEMAS: Dict[str, List[str]] = {
 
 VALID_TOOL_NAMES = set(TOOL_SCHEMAS.keys())
 
-# Shell metacharacters that the Codey-v2 shell tool blocks (mirrors shell_tools.py)
+# Shell metacharacters that the Kuza-v2 shell tool blocks (mirrors shell_tools.py)
 _SHELL_METACHARACTERS = [';', '&&', '||', '|', '`', '$(', '${', '<(', '>(', '\n', '\r']
 
 # Max content sizes (characters) — prevent enormous records in the index

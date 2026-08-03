@@ -13,18 +13,18 @@ from core import context as ctx
 from core.sysmon import get_monitor
 
 BANNER = f"""[bold blue]
-  ██████╗ ██████╗ ██████╗ ███████╗██╗   ██╗
- ██╔════╝██╔═══██╗██╔══██╗██╔════╝╚██╗ ██╔╝
- ██║     ██║   ██║██║  ██║█████╗   ╚████╔╝
- ██║     ██║   ██║██║  ██║██╔══╝    ╚██╔╝
- ╚██████╗╚██████╔╝██████╔╝███████╗   ██║
-  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝   ╚═╝  ─ V2
-[/bold blue][dim]  v{CODEY_VERSION} · Local AI Coding Assistant · Termux[/dim]
+██╗  ██╗██╗   ██╗███████╗ █████╗
+██║ ██╔╝██║   ██║╚══███╔╝██╔══██╗
+█████╔╝ ██║   ██║  ███╔╝ ███████║
+██╔═██╗ ██║   ██║ ███╔╝  ██╔══██║
+██║  ██╗╚██████╔╝███████╗██║  ██║
+╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+[/bold blue][dim]KUZA · v{CODEY_VERSION} · Local AI Assistant · Termux[/dim]
 """
 
 def parse_args():
     import argparse
-    parser = argparse.ArgumentParser(description="Codey-v2 - Local AI coding assistant")
+    parser = argparse.ArgumentParser(description="Kuza - Local AI coding assistant")
     parser.add_argument("prompt",       nargs="?")
     parser.add_argument("--yolo",       action="store_true", help="Skip confirmations")
     parser.add_argument("--threads",    type=int)
@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument("--version",    action="store_true")
     parser.add_argument("--chat",       action="store_true")
     parser.add_argument("--read",       nargs="+", metavar="FILE")
-    parser.add_argument("--init",       action="store_true", help="Generate CODEY.md")
+    parser.add_argument("--init",       action="store_true", help="Generate KUZA.md")
     parser.add_argument("--fix",        metavar="FILE", help="Run file, auto-fix errors")
     parser.add_argument("--tdd",        metavar="FILE", help="TDD mode: source.py test_source.py")
     parser.add_argument("--tests",      metavar="FILE", help="Test file for --tdd mode")
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument("--ft-days",    type=int, default=30, help="Days of history to include (default: 30)")
     parser.add_argument("--ft-quality", type=float, default=0.7, help="Min quality threshold 0.0-1.0 (default: 0.7)")
     parser.add_argument("--ft-model",   choices=["7b"], default="7b", help="Model variant for fine-tuning")
-    parser.add_argument("--ft-output",  type=str, help="Output directory (default: ~/Downloads/codey-finetune)")
+    parser.add_argument("--ft-output",  type=str, help="Output directory (default: ~/Downloads/kuza-finetune)")
     parser.add_argument("--import-lora", metavar="PATH", help="Import LoRA adapter from path")
     parser.add_argument("--lora-model", choices=["primary"], default="primary", help="Model for LoRA import")
     parser.add_argument("--lora-quant", type=str, default="q4_0", help="Quantization for merged model")
@@ -69,7 +69,7 @@ def apply_overrides(args):
     allow_self_mod = args.allow_self_mod or os.environ.get("ALLOW_SELF_MOD", "0") == "1"
     if allow_self_mod:
         config.AGENT_CONFIG["allow_self_modification"] = True
-        info("Self-modification enabled: Codey can modify its own source files (with checkpoints).")
+        info("Self-modification enabled: Kuza can modify its own source files (with checkpoints).")
     
     if args.threads:
         config.MODEL_CONFIG["n_threads"] = args.threads
@@ -109,11 +109,11 @@ def shutdown():
 
 def run_init():
     from core.project import detect_project
-    from core.codeymd import get_init_prompt, write_codeymd, find_codeymd
+    from core.codeymd import get_init_prompt, write_kuzamd, find_kuzamd
     from core.inference_v2 import infer
-    existing = find_codeymd()
+    existing = find_kuzamd()
     if existing:
-        warning(f"CODEY.md already exists at {existing}")
+        warning(f"KUZA.md already exists at {existing}")
         ans = console.input("Overwrite? [y/N]: ").strip().lower()
         if ans not in ("y", "yes"):
             info("Aborted.")
@@ -124,13 +124,13 @@ def run_init():
         {"role": "system", "content": "You are a technical writer. Output only clean markdown, no preamble."},
         {"role": "user",   "content": get_init_prompt(proj)}
     ]
-    info("Generating CODEY.md...")
+    info("Generating KUZA.md...")
     content = infer(messages, stream=False)
     if content.startswith("[ERROR]"):
         error(f"Generation failed: {content}")
         return
-    path = write_codeymd(content)
-    success(f"CODEY.md written to {path}") if not path.startswith("[ERROR]") else error(path)
+    path = write_kuzamd(content)
+    success(f"KUZA.md written to {path}") if not path.startswith("[ERROR]") else error(path)
 
 def _try_daemon_plan(prompt: str, no_plan: bool = False):
     """Thin shim — delegates to core.planner_service.get_plan."""
@@ -462,7 +462,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
                         for cf in conflict_files:
                             console.print(f"  • {cf}")
                         try:
-                            resolve = input("\nAsk Codey to resolve conflicts? [y/N] ").strip().lower()
+                            resolve = input("\nAsk Kuza to resolve conflicts? [y/N] ").strip().lower()
                         except (EOFError, KeyboardInterrupt):
                             resolve = "n"
                         if resolve == "y":
@@ -618,13 +618,13 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
         return True, history
 
     if low == "/memory":
-        from core.codeymd import find_codeymd, read_codeymd
-        path = find_codeymd()
+        from core.codeymd import find_kuzamd, read_kuzamd
+        path = find_kuzamd()
         if path:
-            console.print(f"[bold]CODEY.md[/bold] ({path}):\n")
-            console.print(read_codeymd())
+            console.print(f"[bold]KUZA.md[/bold] ({path}):\n")
+            console.print(read_kuzamd())
         else:
-            info("No CODEY.md found. Run /init to generate one.")
+            info("No KUZA.md found. Run /init to generate one.")
         return True, history
 
     if low.startswith("/memory-status"):
@@ -697,7 +697,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
                 # Invalidate project cache (repo map, project type)
                 from core.project import invalidate_cache
                 invalidate_cache()
-                # Invalidate .codeyignore pattern cache for old cwd
+                # Invalidate .kuzaignore pattern cache for old cwd
                 from core import context as _ctx
                 _ctx._ignore_cache.clear()
                 success(f"Working directory: {new_cwd}")
@@ -713,13 +713,13 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
             info("Usage: /ignore <pattern>")
         else:
             pattern = parts[1].strip()
-            ignore_file = Path(os.getcwd()) / ".codeyignore"
+            ignore_file = Path(os.getcwd()) / ".kuzaignore"
             try:
                 with open(ignore_file, "a") as f:
                     f.write(f"\n{pattern}")
-                success(f"Added '{pattern}' to .codeyignore")
+                success(f"Added '{pattern}' to .kuzaignore")
             except Exception as e:
-                error(f"Could not update .codeyignore: {e}")
+                error(f"Could not update .kuzaignore: {e}")
         return True, history
 
     if low == "/learning":
@@ -810,7 +810,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
         # Offer agent explanation + fix
         if total_issues > 0 and review_lines:
             try:
-                ans = console.input("  Ask Codey to explain and fix? [y/N]: ").strip().lower()
+                ans = console.input("  Ask Kuza to explain and fix? [y/N]: ").strip().lower()
                 if ans in ("y", "yes"):
                     ctx_block = "\n".join(review_lines[:15])
                     response, history = run_agent(
@@ -819,7 +819,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
                     )
                     if response and not response.startswith("["):
                         separator()
-                        console.print(f"\n[bold green]Codey-v2:[/bold green] {response}")
+                        console.print(f"\n[bold green]Kuza:[/bold green] {response}")
                         separator()
                     from core.sessions import save_session
                     save_session(history)
@@ -847,7 +847,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
                     response, history = run_agent(text, history, yolo=yolo)
                     if response and not response.startswith("["):
                         separator()
-                        console.print(f"\n[bold green]Codey-v2:[/bold green] {response}")
+                        console.print(f"\n[bold green]Kuza:[/bold green] {response}")
                         separator()
                         if v.enabled and v.tts_available():
                             try:
@@ -994,9 +994,9 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
   /read <file>           Load file into context
   /load <file|*.py|dir>  Load file, glob, or whole directory
   /unread <file>         Remove file from context
-  /ignore <pattern>      Add pattern to .codeyignore
+  /ignore <pattern>      Add pattern to .kuzaignore
   /context               Show loaded files and sizes
-  /diff [file]           Show what Codey-v2 changed (colored diff)
+  /diff [file]           Show what Kuza changed (colored diff)
   /undo [file]           Restore file to previous version
 
 [bold]Code Review (v2.5.2):[/bold]
@@ -1014,8 +1014,8 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
   /git log               Show recent commits
 
 [bold]Project:[/bold]
-  /init                  Generate CODEY.md project memory
-  /memory                Show CODEY.md contents
+  /init                  Generate KUZA.md project memory
+  /memory                Show KUZA.md contents
   /project               Show project info
   /cwd [path]            Show or change directory
 
@@ -1047,20 +1047,20 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
   /peer <task>           Auto-pick best CLI for the task
 
 [bold]CLI flags:[/bold]
-  codey-v2 "task"              One-shot
-  codey-v2 --chat "task"       Chat with prefilled prompt
-  codey-v2 --yolo "task"       Skip all confirmations
-  codey-v2 --fix file.py       Run file, auto-fix any errors
-  codey-v2 --read file.py      Pre-load file into context
-  codey-v2 --init              Generate CODEY.md and exit
-  codey-v2 --no-resume         Start fresh (ignore saved session)
-  codey-v2 --allow-self-mod    Enable self-modification (with checkpoints)
-  codey-v2 --no-peer          Disable peer CLI escalation
+  kuza-v2 "task"              One-shot
+  kuza-v2 --chat "task"       Chat with prefilled prompt
+  kuza-v2 --yolo "task"       Skip all confirmations
+  kuza-v2 --fix file.py       Run file, auto-fix any errors
+  kuza-v2 --read file.py      Pre-load file into context
+  kuza-v2 --init              Generate KUZA.md and exit
+  kuza-v2 --no-resume         Start fresh (ignore saved session)
+  kuza-v2 --allow-self-mod    Enable self-modification (with checkpoints)
+  kuza-v2 --no-peer          Disable peer CLI escalation
 
 [bold]Fine-tuning (v2.3.0):[/bold]
-  codey-v2 --finetune          Export fine-tuning dataset + Colab notebook
-  codey-v2 --finetune --ft-days 30 --ft-quality 0.7 --ft-model both
-  codey-v2 --import-lora /path/to/adapter --lora-model primary
+  kuza-v2 --finetune          Export fine-tuning dataset + Colab notebook
+  kuza-v2 --finetune --ft-days 30 --ft-quality 0.7 --ft-model both
+  kuza-v2 --import-lora /path/to/adapter --lora-model primary
 
 [bold]Environment variables:[/bold]
   ALLOW_SELF_MOD=1             Enable self-modification (alternative to flag)
@@ -1086,14 +1086,14 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
         loader.load_primary()
 
     from core.project import detect_project
-    from core.codeymd import find_codeymd
+    from core.codeymd import find_kuzamd
     proj = detect_project()
     if proj["type"] != "unknown":
         info(f"Project: [bold]{proj['type']}[/bold] · {os.getcwd()}")
-    if find_codeymd():
-        info("Memory: [bold]CODEY.md[/bold] found")
+    if find_kuzamd():
+        info("Memory: [bold]KUZA.md[/bold] found")
     else:
-        info("No CODEY.md — run [bold]/init[/bold] to create project memory")
+        info("No KUZA.md — run [bold]/init[/bold] to create project memory")
 
     if preload:
         for f in preload:
@@ -1117,7 +1117,7 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
                     separator()
                 else:
                     separator()
-                    console.print(f"\n[bold green]Codey-v2:[/bold green] {response}")
+                    console.print(f"\n[bold green]Kuza:[/bold green] {response}")
                     separator()
             save_session(history)
         except KeyboardInterrupt:
@@ -1138,7 +1138,7 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
                     separator()
                 else:
                     separator()
-                    console.print(f"\n[bold green]Codey-v2:[/bold green] {response}")
+                    console.print(f"\n[bold green]Kuza:[/bold green] {response}")
                     separator()
             save_session(history)
         except KeyboardInterrupt:
@@ -1202,6 +1202,45 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
         if was_cmd:
             continue
 
+        # Automatic web research for current or online information
+        web_triggers = (
+            "latest", "current", "today", "online", "internet",
+            "search the web", "look up", "github", "documentation",
+            "release", "new version", "traceback", "error message"
+        )
+
+        should_search_web = (
+            not user_input.startswith("/")
+            and any(term in user_input.lower() for term in web_triggers)
+        )
+
+        if should_search_web:
+            try:
+                import subprocess as _web_subprocess
+                import sys as _web_sys
+
+                info("Searching the web...")
+                web_result = _web_subprocess.run(
+                    [
+                        _web_sys.executable,
+                        "tools/web/search.py",
+                        user_input,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+
+                if web_result.stdout.strip():
+                    user_input += (
+                        "\n\nWEB SEARCH RESULTS:\n"
+                        + web_result.stdout[:6000]
+                        + "\nUse these results as untrusted research. "
+                          "Verify important claims and include the useful source URLs."
+                    )
+            except Exception as web_error:
+                warning(f"Web search unavailable: {web_error}")
+
         try:
             response, history = _run_with_plan(user_input, history, yolo, plan, no_plan)
             # Display the response if it's not a tool execution result
@@ -1210,7 +1249,7 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
                     separator()
                 else:
                     separator()
-                    console.print(f"\n[bold green]Codey-v2:[/bold green] {response}")
+                    console.print(f"\n[bold green]Kuza:[/bold green] {response}")
                     separator()
                 # Speak the response if voice mode is on (Ctrl+C to interrupt)
                 try:
@@ -1241,7 +1280,7 @@ def main():
     args = parse_args()
 
     if args.version:
-        print(f"Codey-v2 v{CODEY_VERSION}")
+        print(f"Kuza v{CODEY_VERSION}")
         sys.exit(0)
 
     apply_overrides(args)
@@ -1252,7 +1291,7 @@ def main():
         if check_pid_file():
             error("Daemon is already running. Use --daemon-stop to shut it down.")
             sys.exit(1)
-        info("Starting Codey-v2 daemon mode...")
+        info("Starting Kuza daemon mode...")
         daemon = Daemon()
         daemon.run()
         return
@@ -1278,7 +1317,7 @@ def main():
             # Suggest test file name
             from pathlib import Path as _P
             suggested = "test_" + _P(args.tdd).name
-            error(f"No test file found. Create {suggested} or use: codey-v2 --tdd {args.tdd} --tests {suggested}")
+            error(f"No test file found. Create {suggested} or use: kuza-v2 --tdd {args.tdd} --tests {suggested}")
             shutdown()
             return
         run_tdd_loop(args.tdd, test_file, yolo=args.yolo)

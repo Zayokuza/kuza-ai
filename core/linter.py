@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Static analysis tools for Codey-v2 — Phase 2 (v2.5.2).
+Static analysis tools for Kuza-v2 — Phase 2 (v2.5.2).
 
 Provides:
   - Syntax checking via ast.parse (no tools required)

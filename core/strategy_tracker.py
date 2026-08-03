@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Strategy effectiveness tracking for Codey-v2.
+Strategy effectiveness tracking for Kuza-v2.
 
 Tracks which recovery strategies work best:
 - Records strategy usage and outcomes
@@ -8,7 +8,7 @@ Tracks which recovery strategies work best:
 - Recommends best strategies for error types
 - Adapts based on historical performance
 
-This makes Codey-v2's error recovery smarter over time.
+This makes Kuza-v2's error recovery smarter over time.
 """
 
 import json

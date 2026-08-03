@@ -1,6 +1,6 @@
-# Fine-Tuning Codey-v2 on Kaggle
+# Fine-Tuning Kuza-v2 on Kaggle
 
-This guide covers the full end-to-end workflow for fine-tuning both Codey-v2 models using your own training data and a free Kaggle GPU.
+This guide covers the full end-to-end workflow for fine-tuning both Kuza-v2 models using your own training data and a free Kaggle GPU.
 
 ---
 
@@ -17,10 +17,10 @@ Both models are trained with QLoRA (4-bit quantized base + LoRA adapters) so the
 
 ## Step 1 — Generate training data (on your phone)
 
-Run the pipeline in Termux from the codey-v2 directory:
+Run the pipeline in Termux from the kuza-v2 directory:
 
 ```bash
-cd ~/codey-v2
+cd ~/kuza-v2
 
 # Quick option — no internet needed, ~5,800 synthetic records:
 python pipeline/run.py --synthetic-only
@@ -32,7 +32,7 @@ python pipeline/run.py --datasets phase1 --max-records 3000
 python pipeline/run.py --datasets phase1
 ```
 
-Output file: `~/codey-v2/pipeline_output/training_data.jsonl`
+Output file: `~/kuza-v2/pipeline_output/training_data.jsonl`
 
 See `docs/pipeline.md` for full pipeline documentation.
 
@@ -52,10 +52,10 @@ Then copy both files:
 
 ```bash
 # The Kaggle notebook
-cp ~/codey-v2/notebooks/codey_finetune_kaggle.ipynb ~/storage/downloads/
+cp ~/kuza-v2/notebooks/kuza_finetune_kaggle.ipynb ~/storage/downloads/
 
 # The training data
-cp ~/codey-v2/pipeline_output/training_data.jsonl ~/storage/downloads/
+cp ~/kuza-v2/pipeline_output/training_data.jsonl ~/storage/downloads/
 ```
 
 Both files will now appear in your phone's Downloads folder and can be uploaded from there.
@@ -66,7 +66,7 @@ Both files will now appear in your phone's Downloads folder and can be uploaded 
 
 1. Go to **kaggle.com → Datasets → New Dataset**
 2. Upload `training_data.jsonl` from your Downloads folder
-3. Name the dataset exactly: `codey-training-data`
+3. Name the dataset exactly: `kuza-training-data`
 4. Make it private or public (either works)
 5. Click **Create**
 
@@ -75,9 +75,9 @@ Both files will now appear in your phone's Downloads folder and can be uploaded 
 ## Step 4 — Set up the Kaggle notebook
 
 1. Go to **kaggle.com → Code → New Notebook**
-2. Click **File → Import Notebook** and upload `codey_finetune_kaggle.ipynb` from your Downloads folder
+2. Click **File → Import Notebook** and upload `kuza_finetune_kaggle.ipynb` from your Downloads folder
 3. In the right panel, set **Accelerator → GPU T4 x1** (free, required)
-4. Click **Add Data** → search for your `codey-training-data` dataset → add it
+4. Click **Add Data** → search for your `kuza-training-data` dataset → add it
 
 ---
 
@@ -138,19 +138,19 @@ The notebook shows training loss in the output — it should decrease steadily. 
 ## Step 8 — Download models to your phone
 
 After the notebook finishes, your models are at:
-- `https://huggingface.co/YOUR_USERNAME/qwen2.5-0.5b-codey-planner-gguf`
-- `https://huggingface.co/YOUR_USERNAME/qwen2.5-coder-7b-codey-gguf`
+- `https://huggingface.co/YOUR_USERNAME/qwen2.5-0.5b-kuza-planner-gguf`
+- `https://huggingface.co/YOUR_USERNAME/qwen2.5-coder-7b-kuza-gguf`
 
 ### Option A — Download directly in Termux (recommended)
 
 ```bash
 # Download the fine-tuned planner model
-wget -O ~/models/qwen2.5-0.5b/planner-codey.gguf \
-  https://huggingface.co/YOUR_USERNAME/qwen2.5-0.5b-codey-planner-gguf/resolve/main/unsloth.Q4_K_M.gguf
+wget -O ~/models/qwen2.5-0.5b/planner-kuza.gguf \
+  https://huggingface.co/YOUR_USERNAME/qwen2.5-0.5b-kuza-planner-gguf/resolve/main/unsloth.Q4_K_M.gguf
 
 # Download the fine-tuned coder model
-wget -O ~/models/qwen2.5-coder-7b/coder-codey.gguf \
-  https://huggingface.co/YOUR_USERNAME/qwen2.5-coder-7b-codey-gguf/resolve/main/unsloth.Q4_K_M.gguf
+wget -O ~/models/qwen2.5-coder-7b/coder-kuza.gguf \
+  https://huggingface.co/YOUR_USERNAME/qwen2.5-coder-7b-kuza-gguf/resolve/main/unsloth.Q4_K_M.gguf
 ```
 
 Replace `YOUR_USERNAME` with your actual HuggingFace username.
@@ -169,19 +169,19 @@ The GGUF files are also saved in Kaggle's output:
 termux-setup-storage
 
 # Copy from Downloads to models:
-cp ~/storage/downloads/unsloth.Q4_K_M.gguf ~/models/qwen2.5-0.5b/planner-codey.gguf
+cp ~/storage/downloads/unsloth.Q4_K_M.gguf ~/models/qwen2.5-0.5b/planner-kuza.gguf
 ```
 
 ---
 
 ## Step 9 — Load the new models
 
-Restart Codey-v2 to load the new weights:
+Restart Kuza-v2 to load the new weights:
 
 ```bash
-codeyd2 stop
-codeyd2 start
-codeyd2 status
+kuzad2 stop
+kuzad2 start
+kuzad2 status
 ```
 
 If your `config.json` points to the old filenames, either rename the new files to match the old names (replacing them), or update the model paths in `config.json`.

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-PTY-based peer CLI runner for Codey-v2.
+PTY-based peer CLI runner for Kuza-v2.
 
-Spawns a peer CLI (claude, gemini, qwen) directly inside Codey's
+Spawns a peer CLI (claude, gemini, qwen) directly inside Kuza's
 terminal window, automatically types the task prompt into it, and captures
 the full response.
 
 User interaction:
   - The peer CLI opens inline — you see everything live.
   - If the peer asks for approval (allow button, y/n, etc.), press ENTER
-    to take over and respond, then press Ctrl+B to hand control back to Codey.
+    to take over and respond, then press Ctrl+B to hand control back to Kuza.
   - When the peer is finished, close it normally (/exit, Ctrl+D, /quit, etc.)
-    — Codey reads the result automatically.
+    — Kuza reads the result automatically.
 
 Requires: pip install pexpect
 """
@@ -85,7 +85,7 @@ def _check_pexpect() -> bool:
 
 def run_peer(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     """
-    Open a peer CLI inside Codey's terminal, auto-type the prompt, capture output.
+    Open a peer CLI inside Kuza's terminal, auto-type the prompt, capture output.
 
     Args:
         cli_name:    Short display name  (e.g. "copilot")
@@ -131,7 +131,7 @@ def run_peer(cli_name: str, cmd: str, prompt_text: str = "") -> str:
             time.sleep(0.2)
             child.sendline(prompt_text)
 
-        # ── Hand control to user (Ctrl+B = escape back to Codey) ─────────
+        # ── Hand control to user (Ctrl+B = escape back to Kuza) ─────────
         # interact() returns when:
         #   a) user presses the escape character (Ctrl+B → \x02), OR
         #   b) the child process exits (EOF)
@@ -157,7 +157,7 @@ def run_peer(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     # ── Draw closing border ────────────────────────────────────────────────
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
-    info(f"Back in Codey — reading {cli_name} output…")
+    info(f"Back in Kuza — reading {cli_name} output…")
 
     return capture.getvalue()
 
@@ -229,7 +229,7 @@ def run_prompted(cli_name: str, cmd: str, flag: str, prompt_text: str, yolo_flag
           gemini --model gemini-2.0-flash -p "explain this"
           qwen -p "task" -y   (yolo_flag="-y" to auto-approve qwen's own tools)
 
-    Streams output live to the terminal and captures it for Codey.
+    Streams output live to the terminal and captures it for Kuza.
     No TUI, no trust dialogs, no pexpect needed.
     Returns "[PEER_ERROR: ...]" if the CLI fails so callers can handle it.
     """
@@ -271,7 +271,7 @@ def run_prompted(cli_name: str, cmd: str, flag: str, prompt_text: str, yolo_flag
 
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
-    info(f"Back in Codey — reading {cli_name} output…")
+    info(f"Back in Kuza — reading {cli_name} output…")
 
     output = "".join(captured)
     # Strip startup noise before error detection so noise lines don't
@@ -292,7 +292,7 @@ def run_positional(cli_name: str, cmd: str, prompt_text: str) -> str:
     e.g.  gh copilot suggest "write a function that reverses a string"
 
     The cmd string is split into argv parts and the prompt is appended as the
-    final argument.  Streams output live and captures it for Codey.
+    final argument.  Streams output live and captures it for Kuza.
     """
     import subprocess
     width  = _terminal_width()
@@ -325,7 +325,7 @@ def run_positional(cli_name: str, cmd: str, prompt_text: str) -> str:
 
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
-    info(f"Back in Codey — reading {cli_name} output…")
+    info(f"Back in Kuza — reading {cli_name} output…")
     return "".join(captured)
 
 
@@ -335,13 +335,13 @@ def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     Used for CLIs that bundle their own native PTY module
     and crash when spawned inside pexpect's PTY.
 
-    Output is captured via the `script` utility so Codey can read it.
+    Output is captured via the `script` utility so Kuza can read it.
     The prepared prompt is shown above the CLI so you can paste it in.
     """
     import tempfile
     width   = _terminal_width()
     border  = "─" * width
-    outfile = tempfile.mktemp(prefix="codey_peer_", suffix=".txt")
+    outfile = tempfile.mktemp(prefix="kuza_peer_", suffix=".txt")
 
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' CLI', width)}{_RESET}")
     info(f"Opening {cli_name} in your terminal.")
@@ -352,7 +352,7 @@ def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
         print(f"{_DIM}{border}{_RESET}\n")
 
     info(f"Close {cli_name} normally when done (/exit, Ctrl+D, /quit…)")
-    print(f"{_DIM}Ctrl+B → return to Codey at any point{_RESET}\n")
+    print(f"{_DIM}Ctrl+B → return to Kuza at any point{_RESET}\n")
 
     # `script -q -c <cmd> <file>` records the session to outfile
     # while letting the CLI run in the real terminal with full PTY support.
@@ -361,7 +361,7 @@ def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
 
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
-    info(f"Back in Codey — reading {cli_name} output…")
+    info(f"Back in Kuza — reading {cli_name} output…")
 
     try:
         raw = Path(outfile).read_bytes()
@@ -489,7 +489,7 @@ def _run_basic_fallback(cli_name: str, cmd: str, prompt_text: str) -> str:
     """
     import tempfile
     width  = _terminal_width()
-    outfile = tempfile.mktemp(prefix="codey_peer_", suffix=".txt")
+    outfile = tempfile.mktemp(prefix="kuza_peer_", suffix=".txt")
 
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' CLI  (manual mode)', width)}{_RESET}")
     if prompt_text:

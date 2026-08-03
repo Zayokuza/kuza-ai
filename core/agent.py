@@ -4,7 +4,7 @@ import time
 from core.inference_v2 import infer
 from core.context import build_file_context_block, auto_load_from_prompt, list_loaded
 from core.project import get_project_summary
-from core.codeymd import read_codeymd, find_codeymd
+from core.codeymd import read_kuzamd, find_kuzamd
 from core.summarizer import should_summarize, summarize_history
 from core.tokens import get_context_usage, usage_bar
 from core.learning import get_learning_manager
@@ -14,6 +14,8 @@ from tools.shell_tools import shell, search_files
 from utils.logger import tool_call, tool_result, warning, separator, info, success
 from utils.config import AGENT_CONFIG, RECURSIVE_CONFIG
 from core.display import show_file_write, show_patch, show_shell, show_tool_generic, show_response
+from tools.holehe_tool import tool_holehe
+from tools.web_tools import web_search, read_webpage
 
 # Learning manager for adaptive behavior
 _learning = None
@@ -45,8 +47,15 @@ TOOLS = {
     # Route through AGENT_CONFIG["_shell_fn"] when set (e.g. daemon allowlist guard).
     # Falls back to the standard shell() when no override is installed.
     "shell":        lambda args: (AGENT_CONFIG.get("_shell_fn") or shell)(args["command"]),
-    "search_files": lambda args: search_files(args["pattern"], args.get("path", ".")),
-    "note_save":    _note_save,
+    "search_files": lambda args: search_files(args),
+    "holehe": tool_holehe,
+    "web_search": lambda args: web_search(
+        args["query"], args.get("limit", 5)
+    ),
+    "read_webpage": lambda args: read_webpage(
+        args["url"], args.get("max_chars", 12000)
+    ),
+    "note_save": _note_save,
     "note_forget":  _note_forget,
 }
 ROGUE_TAG_MAP = {
@@ -54,6 +63,9 @@ ROGUE_TAG_MAP = {
     "patch_file": "patch_file", "shell": "shell",
     "append_file": "append_file", "list_dir": "list_dir",
     "search_files": "search_files",
+    "holehe": "holehe",
+    "web_search": "web_search",
+    "read_webpage": "read_webpage",
     "note_save": "note_save", "note_forget": "note_forget",
 }
 
@@ -64,10 +76,10 @@ HALLUCINATION_MARKERS = [
     "\n## Loaded Files", "\n## Project Memory", "\n## Current Project",
     "\n## User Notes", "\n## Project Map", "\n## User Preferences",
     "\n## Relevant Skills", "\n## Reference Material", "\n## Repo Map",
-    # CODEY.md echo — model regurgitating project memory (# headers)
+    # KUZA.md echo — model regurgitating project memory (# headers)
     "\n# Project", "\n# Stack", "\n# Structure", "\n# Commands",
     "\n# Conventions", "\n# Notes",
-    # CODEY.md list items — model echoing config lines
+    # KUZA.md list items — model echoing config lines
     "\n- Code style:", "\n- Naming:", "\n- Logging:", "\n- Imports:",
     # Code leakage — model echoing source after prose (common with small models)
     "\nfrom core.", "\nfrom utils.", "\nfrom prompts.", "\nfrom tools.",
@@ -256,6 +268,20 @@ def parse_tool_call(text):
         result = extract_json(match.group(1))
         if result and "name" in result:
             return result
+    # Also accept Markdown fenced tool calls:
+    # ```tool
+    # {"name": "shell", "args": {"command": "pwd"}}
+    # ```
+    match = re.search(
+        r"```tool\s*(\{.*?\})\s*```",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if match:
+        result = extract_json(match.group(1))
+        if result and "name" in result:
+            return result
+
     # Rogue tags: <write_file>{json}</write_file> etc.
     for tag, canonical in ROGUE_TAG_MAP.items():
         match = re.search(r"<" + tag + r">\s*(\{.*)", text, re.DOTALL)
@@ -479,7 +505,7 @@ def check_git_and_offer_commit(user_message, tools_used):
     print(status)
     if ask_confirm("\nStage all and commit these changes?"):
         # Simple heuristic for commit message from user request
-        msg = f"Codey: {user_message[:50]}..."
+        msg = f"Kuza: {user_message[:50]}..."
         res = git_commit(msg)
         if res.startswith("[ERROR]"):
             error(res)
@@ -700,11 +726,11 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                     and not bool(_STRONG_IMPLEMENT.search(_peer_task))
                 )
 
-                # Output format instructions — Codey extracts code blocks to write files.
+                # Output format instructions — Kuza extracts code blocks to write files.
                 # Claude -p returns plain text; without explicit format instructions it
                 # asks for permission or returns prose instead of extractable code.
                 _FORMAT_INSTRUCTIONS = (
-                    "\n\nOUTPUT FORMAT (required — Codey will parse this automatically):\n"
+                    "\n\nOUTPUT FORMAT (required — Kuza will parse this automatically):\n"
                     "You are responding to an automated system. Do NOT ask for permission.\n"
                     "Do NOT ask clarifying questions. Act immediately.\n"
                     "For each file to create or modify, output it using this exact format:\n\n"
@@ -714,7 +740,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                     "```\n\n"
                     "Use the correct language tag for non-Python files (javascript, json, etc.).\n"
                     "Write COMPLETE file content — no stubs, no placeholders, no '...'.\n"
-                    "Codey will write these files to disk automatically."
+                    "Kuza will write these files to disk automatically."
                 )
                 # Design tasks: ask for prose, NOT code blocks.
                 # Code blocks in design output are misinterpreted by _auto_apply_peer_code.
@@ -912,7 +938,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     from core.display import show_task_plan, console
     if is_complex(user_message) and not _in_subtask and not no_plan:
         info("Planning subtasks...")
-        queue = plan_tasks(user_message, read_codeymd())
+        queue = plan_tasks(user_message, read_kuzamd())
         if queue.tasks:
             show_task_plan(queue)
             try:
@@ -933,7 +959,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     if use_plan:
         from core.planner import get_plan, show_and_confirm_plan
         info("Generating plan...")
-        plan = get_plan(user_message, read_codeymd())
+        plan = get_plan(user_message, read_kuzamd())
         approved, enriched = show_and_confirm_plan(plan)
         if not approved:
             return "[Cancelled]", history
@@ -984,7 +1010,11 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         "tell me", "tell me about", "explain", "help me understand",
         "what can you", "hello", "hi", "hey", "thanks", "thank you",
     ]
-    is_qa = not _has_action and (
+    _explicit_tool_request = any(phrase in msg_low for phrase in (
+        "use the shell tool", "use shell", "run the shell tool",
+        "use the tool", "run a command", "execute a command",
+    ))
+    is_qa = not _has_action and not _explicit_tool_request and (
         msg_low.endswith("?") or
         msg_low.startswith(_question_starters) or
         any(re.search(r'\b' + re.escape(k) + r'\b', msg_low) for k in _qa_phrases)
@@ -999,6 +1029,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     max_steps = AGENT_CONFIG["max_steps"]
     tools_used = []
     last_tool_result = ""
+    last_failed_attempt = None
     duplicate_count = 0
     hallucination_count = 0
     auto_retries = 0
@@ -1142,7 +1173,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 if duplicate_count >= 2:
                     separator()
                     summary = "Done. " + last_tool_result[:300]
-                    print("\033[1;32mCodey:\033[0m " + summary)
+                    print("\033[1;32mKuza:\033[0m " + summary)
                     separator()
                     history.append({"role": "user",     "content": user_message})
                     history.append({"role": "assistant", "content": summary})
@@ -1177,6 +1208,12 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                         pass
             if is_error(last_tool_result, name):
                 error_log.append(last_tool_result[:300])
+                last_failed_attempt = {
+                    "strategy": name,
+                    "error_type": f"{name}_error",
+                    "error_message": last_tool_result[:1000],
+                    "args": dict(args),
+                }
             fpath_touched = args.get("path", "")
             if fpath_touched and fpath_touched not in files_touched:
                 files_touched.append(fpath_touched)
@@ -1219,18 +1256,36 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 from core.peer_cli import escalate
                 peer_result = escalate(user_message, error_log, files_touched)
                 if peer_result and peer_result.startswith("[redirect]:"):
-                    # User told Codey to try a different approach
+                    # User told Kuza to try a different approach
                     new_instruction = peer_result[len("[redirect]: "):]
                     messages.append({"role": "user", "content": new_instruction})
                     auto_retries = 0
                     continue
                 elif peer_result:
-                    # Peer CLI ran — inject its output and let Codey act on it
+                    # Peer CLI ran — inject its output and let Kuza act on it
                     messages.append({"role": "assistant", "content": _format_tool_for_history(tool_dict)})
                     messages.append({"role": "user", "content": peer_result + "\n\nBased on the above, complete the task or summarize what was accomplished."})
                     auto_retries = 0
                     continue
                 # else: user skipped escalation, fall through to normal handling
+            if last_failed_attempt and not is_error(last_tool_result, name):
+                try:
+                    _get_learning().learn_from_error_and_fix(
+                        error_type=last_failed_attempt["error_type"],
+                        error_message=last_failed_attempt["error_message"],
+                        fix=f"{name}: {last_tool_result[:500]}",
+                        success=True,
+                        strategy=name,
+                        context={
+                            "failed_strategy": last_failed_attempt["strategy"],
+                            "failed_args": last_failed_attempt["args"],
+                            "successful_args": dict(args),
+                        },
+                    )
+                    last_failed_attempt = None
+                except Exception:
+                    pass
+
             messages.append({"role": "assistant", "content": _format_tool_for_history(tool_dict)})
             # After write_file for a simple create request — force exit the loop.
             # The 7B model ignores "don't run commands" instructions and keeps
@@ -1258,7 +1313,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                         continue
                 _confirm = f"Created {_written_path}"
                 separator()
-                print("\033[1;32mCodey:\033[0m " + _confirm)
+                print("\033[1;32mKuza:\033[0m " + _confirm)
                 separator()
                 history.append({"role": "user",      "content": user_message})
                 history.append({"role": "assistant",  "content": _confirm})

@@ -2,7 +2,7 @@
 
 ## v2.0.0 — Initial Public Release (2026-04-01)
 
-The full feature set of Codey-v2 — three-model architecture, four-tier memory,
+The full feature set of Kuza-v2 — three-model architecture, four-tier memory,
 multi-peer escalation, shell consent model, design-only planning phase, hybrid
 RAG retrieval, thermal management, voice, fine-tuning pipeline, and security
 hardening. See [CHANGELOG.md](../CHANGELOG.md) for the complete feature list.
@@ -28,7 +28,7 @@ hardening. See [CHANGELOG.md](../CHANGELOG.md) for the complete feature list.
 - `nomic-embed-text-v1.5` (80 MB Q4, 768-dim) runs as a permanent separate process on port 8082.
 - Hybrid BM25 + vector search with RRF merging — +15–25% retrieval recall over BM25 alone.
 - 92.6% of chunks get vector embeddings; remainder falls back to BM25.
-- Auto-started and watchdog-monitored by `codeyd2 start`.
+- Auto-started and watchdog-monitored by `kuzad2 start`.
 
 ## v2.6.5 — Skill Loading
 
@@ -140,6 +140,6 @@ hardening. See [CHANGELOG.md](../CHANGELOG.md) for the complete feature list.
 
 Seven-phase implementation: Daemon, Memory, Dual-Model, Planner, Checkpoints, Observability, Recovery.
 
-## v1.0.0 — Original Codey
+## v1.0.0 — Original Kuza
 
 Session-based CLI with a ReAct agent loop. No persistence, no daemon, single model.

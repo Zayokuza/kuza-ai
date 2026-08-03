@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Direct filesystem access for Codey-v2.
+Direct filesystem access for Kuza-v2.
 
 Provides a class-based interface for file operations:
 - read(path) - Read file content
@@ -30,7 +30,7 @@ class FilesystemAccessError(Exception):
 
 class Filesystem:
     """
-    Direct filesystem access for Codey-v2 agent.
+    Direct filesystem access for Kuza-v2 agent.
 
     Provides safe file operations with:
     - Path validation (no access outside workspace)
@@ -185,10 +185,10 @@ class Filesystem:
         try:
             path = self._validate_path(path)
 
-            # Check if modifying Codey's own code (requires checkpoint)
+            # Check if modifying Kuza's own code (requires checkpoint)
             is_core = _is_core_file(str(path))
             if is_core:
-                info(f"Writing to core Codey file: {path}")
+                info(f"Writing to core Kuza file: {path}")
                 # Enforce checkpoint before core file writes
                 self._require_checkpoint(path)
 

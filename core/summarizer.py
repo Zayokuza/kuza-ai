@@ -113,7 +113,7 @@ def _call_05b(dropped_msgs: list[dict]) -> str | None:
 
     # Local 0.5B path
     payload = {
-        "model": "codey-planner",
+        "model": "kuza-planner",
         "messages": messages,
         "max_tokens": 160,
         "temperature": 0.2,

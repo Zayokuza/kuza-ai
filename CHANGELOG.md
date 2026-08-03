@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Codey-v2 are documented in this file.
+All notable changes to Kuza-v2 are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Initial Public Release
 
-This is the first public release of Codey-v2. All features described below are
+This is the first public release of Kuza-v2. All features described below are
 present in the `v2.0.0` tag. The internal development history that led here is
 preserved in the [Pre-release Development History](#pre-release-development-history)
 section below.
@@ -20,11 +20,11 @@ section below.
 - **Qwen2.5-Coder-7B-Instruct Q4_K_M** on port 8080 — primary agent (coding, reasoning, tool use)
 - **Qwen2.5-0.5B-Instruct Q8_0** on port 8081 — task planning and conversation summarization (plannd daemon)
 - **nomic-embed-text-v1.5 Q4** on port 8082 — RAG retrieval encoder
-- All three run as independent `llama-server` processes, started and watchdog-monitored by `codeyd2`
+- All three run as independent `llama-server` processes, started and watchdog-monitored by `kuzad2`
 
 #### Persistent Daemon
-- `codeyd2 start|stop|status|restart|reload|config` — full lifecycle management
-- Unix socket at `~/.codey-v2/codey-v2.sock` for low-latency IPC
+- `kuzad2 start|stop|status|restart|reload|config` — full lifecycle management
+- Unix socket at `~/.kuza-v2/kuza-v2.sock` for low-latency IPC
 - SQLite state store — task queue and session state survive restarts
 - Watchdog auto-restarts any of the three model servers if they crash
 
@@ -179,16 +179,16 @@ section below.
 
 #### New Components
 - **`core/plannd.py`** — Planner daemon: runs `DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M` on port 8081 as a
-  dedicated task-planning model. Listens on Unix socket `~/.codey-v2/plannd.sock`. Accepts raw user
+  dedicated task-planning model. Listens on Unix socket `~/.kuza-v2/plannd.sock`. Accepts raw user
   prompts, returns numbered step lists for the 7B execution model to work through one at a time.
 - **`core/planner_client.py`** — Async socket client for plannd. Used by daemon to send planning
   requests and receive step lists. Raises `ConnectionRefusedError` if plannd is not running (silent
   fallback).
 
 #### Architecture Changes
-- **Three-daemon architecture**: `codeyd2` (main daemon, Qwen 7B on port 8080) + `plannd`
+- **Three-daemon architecture**: `kuzad2` (main daemon, Qwen 7B on port 8080) + `plannd`
   (DeepSeek planner on port 8081) + embed server (nomic-embed on port 8082). All three start/stop
-  together via `codeyd2 start` / `codeyd2 stop`.
+  together via `kuzad2 start` / `kuzad2 stop`.
 - **`core/daemon.py`** — `_handle_command()` wired to plannd via `send_plan_request_async()`.
   45-second timeout with full silent fallback chain. `plan_only=True` flag prevents double execution:
   daemon returns the plan without queuing tasks, main.py executes each step locally.
@@ -207,7 +207,7 @@ section below.
   when explicitly enabled via `QWEN_7B_MLOCK=1`.
 
 #### Changed
-- `codeyd2` — `start` and `stop` commands manage plannd lifecycle. `status` shows mmap state and
+- `kuzad2` — `start` and `stop` commands manage plannd lifecycle. `status` shows mmap state and
   health-checks all three model ports (8080, 8081, 8082).
 - `utils/config.py` — version bumped: `2.6.9` → `2.7.0`
 
@@ -230,7 +230,7 @@ section below.
 
 ### Removed — Single-Model Architecture
 
-Removed the dual-model hot-swap system. Codey-v2 now runs exclusively on the
+Removed the dual-model hot-swap system. Kuza-v2 now runs exclusively on the
 primary Qwen2.5-Coder-7B model. The router and secondary model added complexity
 (SIGSTOP/SIGCONT caching, routing heuristics, cooldown logic) that caused subtle
 failures (e.g. the 1.5B model timing out on tasks it couldn't handle) with
@@ -354,8 +354,8 @@ KB vector index now takes ~3 minutes instead of ~3 hours on-device.
 - `start_embed_server()` / `stop_embed_server()` — public helpers; both
   idempotent and safe to call multiple times.
 - Startup: waits up to 30 s for `/health` to respond; logs to
-  `~/.codey-v2/embed-server.log` on failure.
-- Graceful stop on daemon shutdown; `pkill -f llama-server` from `codeyd2
+  `~/.kuza-v2/embed-server.log` on failure.
+- Graceful stop on daemon shutdown; `pkill -f llama-server` from `kuzad2
   stop` also catches the embed server process.
 
 #### Changes to `utils/config.py`
@@ -411,11 +411,11 @@ at query time rather than producing silent garbage results).
 
 ```bash
 # Restart daemon (clears __pycache__ + starts embed server automatically)
-codeyd2 stop && codeyd2 start
+kuzad2 stop && kuzad2 start
 sleep 20
 
 # Rebuild semantic index (~3 min with nomic on port 8082)
-cd ~/codey-v2
+cd ~/kuza-v2
 python3 -c "from tools.kb_semantic import build_semantic_index; build_semantic_index()"
 # writes vectors.npy at 768-dim (nomic-embed-text-v1.5)
 ```
@@ -429,7 +429,7 @@ python3 -c "from tools.kb_semantic import build_semantic_index; build_semantic_i
 
 ### Added — Phase 5: Skill Loading + External Repos
 
-Phase 5 adds dynamic skill injection into the system prompt. When Codey
+Phase 5 adds dynamic skill injection into the system prompt. When Kuza
 receives a task, it now searches the indexed skill repositories for expert
 prompt patterns that match the request and injects them as a `## Relevant
 Skills` context layer alongside the existing RAG documentation.
@@ -747,9 +747,9 @@ Safety headroom:    ~1444 tokens
 - SQLite state store for persistence (`core/state.py`)
 - Daemon configuration management (`core/daemon_config.py`)
 - Task executor for background execution (`core/task_executor.py`)
-- CLI client (`codey2`) and daemon manager (`codeyd2`) scripts
-- Commands: `codeyd2 start|stop|status|restart|reload|config`
-- Commands: `codey2 "prompt"`, `codey2 status`, `codey2 task list`
+- CLI client (`kuza2`) and daemon manager (`kuzad2`) scripts
+- Commands: `kuzad2 start|stop|status|restart|reload|config`
+- Commands: `kuza2 "prompt"`, `kuza2 status`, `kuza2 task list`
 
 #### Phase 2: Direct Filesystem Access
 - Class-based filesystem access (`core/filesystem.py`)
@@ -796,9 +796,9 @@ Safety headroom:    ~1444 tokens
 - Auto-reduce threads after 10 minutes continuous use
 
 ### Changed
-- All references updated from "Codey v2" to "Codey-v2"
-- Daemon files renamed to `codey-v2.*` (pid, sock, log)
-- Complete separation from original `codey` directory
+- All references updated from "Kuza v2" to "Kuza-v2"
+- Daemon files renamed to `kuza-v2.*` (pid, sock, log)
+- Complete separation from original `kuza` directory
 - Fixed interactive mode crash (Termux-safe thinking indicator)
 - Fixed response display in REPL
 - Enhanced error handling throughout
@@ -806,8 +806,8 @@ Safety headroom:    ~1444 tokens
 ### Fixed
 - Interactive mode no longer crashes Termux
 - Response display now works correctly in REPL
-- PATH conflicts resolved (removed old `codey` from .bashrc)
-- Daemon file isolation (no cross-contamination with original codey)
+- PATH conflicts resolved (removed old `kuza` from .bashrc)
+- Daemon file isolation (no cross-contamination with original kuza)
 - Thinking indicator safe for Termux (no threads during I/O)
 
 ### Technical Notes
@@ -820,7 +820,7 @@ Safety headroom:    ~1444 tokens
 ## [1.0.0] - 2026-02-27
 
 ### Added
-- Original Codey implementation
+- Original Kuza implementation
 - Session-based CLI tool
 - ReAct agent with tool calling
 - Basic file operations (read, write, patch, append)
@@ -881,30 +881,30 @@ The following features are explicitly out of scope for v2.0.0 but may be conside
 ### From v1.0.0 to v2.0.0
 
 **Breaking Changes:**
-- Daemon files renamed: `codey.pid` → `codey-v2.pid`, `codey.sock` → `codey-v2.sock`, `codey.log` → `codey-v2.log`
+- Daemon files renamed: `kuza.pid` → `kuza-v2.pid`, `kuza.sock` → `kuza-v2.sock`, `kuza.log` → `kuza-v2.log`
 - `PROTECTED_FILES` removed (self-modification now allowed with checkpointing)
 - Session format unchanged (backward compatible)
 
 **Upgrade Steps:**
-1. Stop any running daemon: `codeyd stop`
-2. Remove old daemon files: `rm ~/.codey/codey.*`
-3. Update PATH in `.bashrc` (remove old `codey` path)
+1. Stop any running daemon: `kuzad stop`
+2. Remove old daemon files: `rm ~/.kuza/kuza.*`
+3. Update PATH in `.bashrc` (remove old `kuza` path)
 4. Install v2.0.0: `git pull` or re-run `./install.sh`
-5. Start new daemon: `codeyd2 start`
+5. Start new daemon: `kuzad2 start`
 
 **New Commands:**
 ```bash
-codeyd2 start|stop|status|restart|reload|config  # Daemon management
-codey2 status                                     # Full system status
-codey2 task list                                  # List recent tasks
-codey2 cancel <id>                                # Cancel a task
+kuzad2 start|stop|status|restart|reload|config  # Daemon management
+kuza2 status                                     # Full system status
+kuza2 task list                                  # List recent tasks
+kuza2 cancel <id>                                # Cancel a task
 ```
 
 ---
 
 ## Contributors
 
-Thanks to all contributors who made Codey-v2 possible!
+Thanks to all contributors who made Kuza-v2 possible!
 
 For a complete list of changes, see the git history:
 ```bash

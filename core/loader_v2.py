@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Model loader for Codey-v2 - Termux/Android compatible.
+Model loader for Kuza-v2 - Termux/Android compatible.
 
 Uses llama-server binary via subprocess instead of llama-cpp-python bindings
 (since llama-cpp-python doesn't support Android platform).
@@ -99,7 +99,7 @@ class LlamaServer:
                 pass  # Config not available — use llama.cpp defaults (mmap on, mlock off)
 
             # Start process - redirect output to log file to avoid pipe buffer issues
-            log_file = Path.home() / ".codey-v2" / "llama-server.log"
+            log_file = Path.home() / ".kuza-v2" / "llama-server.log"
             log_file.parent.mkdir(parents=True, exist_ok=True)
 
             with open(log_file, "w") as f:

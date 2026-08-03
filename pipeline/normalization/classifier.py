@@ -2,7 +2,7 @@
 Response type classifier.
 
 Given a raw response string, determines what kind of action it represents
-so the transformer can map it to the right Codey-v2 tool.
+so the transformer can map it to the right Kuza-v2 tool.
 """
 
 import re

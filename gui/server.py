@@ -117,12 +117,12 @@ async def broadcast(msg: dict) -> None:
     clients.difference_update(dead)
 
 
-# ─── Codey task runner ────────────────────────────────────────────────────────
+# ─── Kuza task runner ────────────────────────────────────────────────────────
 
 active_proc: Optional[asyncio.subprocess.Process] = None
 
 
-async def run_codey(prompt: str) -> None:
+async def run_kuza(prompt: str) -> None:
     global active_proc
 
     env = os.environ.copy()
@@ -208,7 +208,7 @@ async def handle_ws(request: web.Request) -> web.WebSocketResponse:
                 if kind == 'command':
                     prompt = data.get('prompt', '').strip()
                     if prompt and active_proc is None:
-                        asyncio.create_task(run_codey(prompt))
+                        asyncio.create_task(run_kuza(prompt))
                 elif kind == 'cancel':
                     if active_proc:
                         try: active_proc.terminate()

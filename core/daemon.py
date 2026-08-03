@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Daemon core for Codey-v2.
+Daemon core for Kuza-v2.
 
 Main daemon process with:
 - Unix socket server for CLI communication
@@ -32,13 +32,13 @@ from core.task_executor import TaskExecutor
 
 # Daemon directory — defined at module level so check_pid_file / is_daemon_running
 # can use it without triggering a full Daemon init.
-DAEMON_DIR = Path.home() / ".codey-v2"
+DAEMON_DIR = Path.home() / ".kuza-v2"
 
 # Stable path constants with hardcoded defaults.
 # These may be overridden when Daemon.__init__ reads the config file.
-PID_FILE    = DAEMON_DIR / "codey-v2.pid"
-SOCKET_FILE = DAEMON_DIR / "codey-v2.sock"
-LOG_FILE    = DAEMON_DIR / "codey-v2.log"
+PID_FILE    = DAEMON_DIR / "kuza-v2.pid"
+SOCKET_FILE = DAEMON_DIR / "kuza-v2.sock"
+LOG_FILE    = DAEMON_DIR / "kuza-v2.log"
 
 
 # ==================== PID File Management ====================
@@ -386,8 +386,8 @@ class Daemon:
         setup_file_logging(log_file_path)
 
         # Override path constants from config so all other functions see them.
-        PID_FILE    = Path(self._config.get("daemon", "pid_file",    default=str(DAEMON_DIR / "codey-v2.pid")))
-        SOCKET_FILE = Path(self._config.get("daemon", "socket_file", default=str(DAEMON_DIR / "codey-v2.sock")))
+        PID_FILE    = Path(self._config.get("daemon", "pid_file",    default=str(DAEMON_DIR / "kuza-v2.pid")))
+        SOCKET_FILE = Path(self._config.get("daemon", "socket_file", default=str(DAEMON_DIR / "kuza-v2.sock")))
         LOG_FILE    = Path(log_file_path)
 
         self.state = get_state_store()
@@ -407,22 +407,22 @@ class Daemon:
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         signal.signal(signal.SIGUSR1, self._handle_sigusr1)
 
-        # Wire ProjectMemory: load CODEY.md and config.json at boot (never evicted)
+        # Wire ProjectMemory: load KUZA.md and config.json at boot (never evicted)
         try:
             from core.memory_v2 import memory as _mem
-            from core.codeymd import find_codeymd, read_codeymd
+            from core.codeymd import find_kuzamd, read_kuzamd
             from pathlib import Path as _Path
 
-            # Load CODEY.md if it exists
-            _codeymd_path = find_codeymd()
-            if _codeymd_path:
-                _codeymd_content = read_codeymd()
-                if _codeymd_content and not _codeymd_content.startswith("[ERROR]"):
-                    _mem.add_to_project(_codeymd_path, _codeymd_content, is_protected=True)
-                    info(f"ProjectMemory: loaded {_codeymd_path}")
+            # Load KUZA.md if it exists
+            _kuzamd_path = find_kuzamd()
+            if _kuzamd_path:
+                _kuzamd_content = read_kuzamd()
+                if _kuzamd_content and not _kuzamd_content.startswith("[ERROR]"):
+                    _mem.add_to_project(_kuzamd_path, _kuzamd_content, is_protected=True)
+                    info(f"ProjectMemory: loaded {_kuzamd_path}")
 
             # Load config.json if it exists
-            _config_path = _Path.home() / ".codey-v2" / "config.json"
+            _config_path = _Path.home() / ".kuza-v2" / "config.json"
             if _config_path.exists():
                 _config_content = _config_path.read_text(encoding="utf-8", errors="replace")
                 _mem.add_to_project(str(_config_path), _config_content, is_protected=True)

@@ -10,15 +10,15 @@
   v2.0.0 · Local AI Coding Assistant · Termux
 ```
 
-> **Codey-v2: A persistent, fully local AI coding agent that runs in Termux on your Android phone — with daemon mode, RAG, git tools, voice, and self-refinement. No cloud required.**
+> **Kuza-v2: A persistent, fully local AI coding agent that runs in Termux on your Android phone — with daemon mode, RAG, git tools, voice, and self-refinement. No cloud required.**
 
-[![Stars](https://img.shields.io/github/stars/Ishabdullah/Codey-v2?style=flat-square&color=gold)](https://github.com/Ishabdullah/Codey-v2/stargazers)
-[![License](https://img.shields.io/github/license/Ishabdullah/Codey-v2?style=flat-square)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/Ishabdullah/Codey-v2?style=flat-square)](https://github.com/Ishabdullah/Codey-v2/commits/main)
+[![Stars](https://img.shields.io/github/stars/Ishabdullah/Kuza-v2?style=flat-square&color=gold)](https://github.com/Ishabdullah/Kuza-v2/stargazers)
+[![License](https://img.shields.io/github/license/Ishabdullah/Kuza-v2?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/Ishabdullah/Kuza-v2?style=flat-square)](https://github.com/Ishabdullah/Kuza-v2/commits/main)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![llama.cpp](https://img.shields.io/badge/inference-llama.cpp-green?style=flat-square)](https://github.com/ggerganov/llama.cpp)
 
-![Codey Mascot](assets/codey-mascot.png)
+![Kuza Mascot](assets/kuza-mascot.png)
 
 A persistent, daemon-based AI coding agent that runs entirely on your Android device. CODEY-V2 maintains state across sessions, manages a background task queue, and uses three purpose-built models — a 7B primary agent, a 0.5B planner and summarizer, and a dedicated embedding encoder — all served locally via llama.cpp.
 
@@ -26,16 +26,16 @@ A persistent, daemon-based AI coding agent that runs entirely on your Android de
 
 ---
 
-## Why Codey-v2?
+## Why Kuza-v2?
 
-In a world full of powerful cloud-based AI coding tools (like multi-agent orchestration layers for Claude Code), Codey-v2 takes a different path:
+In a world full of powerful cloud-based AI coding tools (like multi-agent orchestration layers for Claude Code), Kuza-v2 takes a different path:
 
 - **Truly offline & private** — Runs 100% locally on your Android phone using small models via llama.cpp. No internet, no API keys, no data leaving your device.
 - **Mobile-first** — Built for Termux. Start a persistent daemon and vibe-code from anywhere: commute, couch, bed, or while traveling.
 - **Lightweight & practical** — Smart thermal management, voice input, git integration, RAG, and a built-in escalation pipeline (automatically asks your installed Claude Code / Qwen CLI / Gemini CLI for help when stuck).
 - **Hybrid when you want it** — Optional OpenRouter fallback for heavier tasks — everything is pre-configured.
 
-Codey-v2 isn't trying to replace desktop cloud super-agents. It's your **pocket coding companion** for when you want freedom, privacy, and zero dependency.
+Kuza-v2 isn't trying to replace desktop cloud super-agents. It's your **pocket coding companion** for when you want freedom, privacy, and zero dependency.
 
 If you value coding on the go without burning subscriptions or sending code to the cloud, this is for you.
 
@@ -47,19 +47,19 @@ If you value coding on the go without burning subscriptions or sending code to t
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/Ishabdullah/Codey-v2.git && cd Codey-v2
+git clone https://github.com/Ishabdullah/Kuza-v2.git && cd Kuza-v2
 
 # 2. Run the installer (downloads models, builds llama.cpp, sets PATH)
 ./install.sh
 
 # 3. Start all three model servers and the background daemon
-codeyd2 start
+kuzad2 start
 
 # 4. Send your first task
-codey2 "add a docstring to every function in utils.py"
+kuza2 "add a docstring to every function in utils.py"
 
 # 5. Check daemon health at any time
-codeyd2 status
+kuzad2 status
 ```
 
 See [docs/installation.md](docs/installation.md) for manual setup and model download links.
@@ -70,7 +70,7 @@ See [docs/installation.md](docs/installation.md) for manual setup and model down
 
 ```bash
 # 1. Clone and install Python dependencies
-git clone https://github.com/Ishabdullah/Codey-v2.git && cd Codey-v2
+git clone https://github.com/Ishabdullah/Kuza-v2.git && cd Kuza-v2
 pip install -r requirements.txt
 
 # 2. Set your API key (get one at https://openrouter.ai/keys)
@@ -99,11 +99,11 @@ export CODEY_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 
 ## Visuals
 
-### Fibonacci Demo — Codey-v2 in Action
+### Fibonacci Demo — Kuza-v2 in Action
 
-![Codey-v2 Fibonacci Demo](assets/demo-fibonacci.gif)
+![Kuza-v2 Fibonacci Demo](assets/demo-fibonacci.gif)
 
-> Codey-v2 generating a Fibonacci sequence implementation entirely on-device — no cloud, no internet, running in Termux on Android.
+> Kuza-v2 generating a Fibonacci sequence implementation entirely on-device — no cloud, no internet, running in Termux on Android.
 
 ---
 
@@ -132,7 +132,7 @@ export CODEY_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 | Qwen2.5-0.5B Q8_0 | 8081 | Task planning and conversation summarization |
 | nomic-embed-text-v1.5 Q4 | 8082 | RAG retrieval encoder |
 
-All three run as independent llama-server processes, managed and watchdog-monitored by `codeyd2`.
+All three run as independent llama-server processes, managed and watchdog-monitored by `kuzad2`.
 
 ### Agent Features
 
@@ -155,7 +155,7 @@ All three run as independent llama-server processes, managed and watchdog-monito
 | Guide | Contents |
 |-------|----------|
 | [Installation](docs/installation.md) | Requirements, one-line install, manual step-by-step |
-| [Commands](docs/commands.md) | Full reference: `codeyd2`, `codey2`, slash commands, flags, env vars |
+| [Commands](docs/commands.md) | Full reference: `kuzad2`, `kuza2`, slash commands, flags, env vars |
 | [Configuration](docs/configuration.md) | Config JSON, model tuning, context management, thermal settings |
 | [Architecture](docs/architecture.md) | System diagram, memory tiers, project structure, Python API |
 | [Knowledge Base](docs/knowledge-base.md) | Setting up RAG, indexing docs, skill repos |
@@ -194,7 +194,7 @@ Bug reports, security disclosures, and hardening contributions are especially we
 - [llama.cpp](https://github.com/ggerganov/llama.cpp) — efficient on-device LLM inference
 - [Qwen](https://huggingface.co/Qwen) — Qwen2.5-Coder models
 - [nomic-ai](https://huggingface.co/nomic-ai) — nomic-embed-text embedding model
-- [Codey v1](https://github.com/Ishabdullah/Codey) — the original session-based agent this builds on
+- [Kuza v1](https://github.com/Ishabdullah/Kuza) — the original session-based agent this builds on
 
 ---
 
@@ -202,4 +202,4 @@ MIT License
 
 ---
 
-*If Codey helps you code on the go, consider starring ⭐ the repo — it helps other Android developers find this project!*
+*If Kuza helps you code on the go, consider starring ⭐ the repo — it helps other Android developers find this project!*

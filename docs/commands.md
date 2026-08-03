@@ -1,28 +1,28 @@
 # Command Reference
 
-## Daemon Manager — `codeyd2`
+## Daemon Manager — `kuzad2`
 
 | Command | Description |
 |---------|-------------|
-| `codeyd2 start` | Start all daemons in the background |
-| `codeyd2 stop` | Stop all daemons cleanly |
-| `codeyd2 status` | Show daemon status, uptime, and model state |
-| `codeyd2 restart` | Restart all daemons |
-| `codeyd2 reload` | Send hot-reload signal (SIGUSR1) without downtime |
-| `codeyd2 config` | Write a default config file to `~/.codey-v2/config.json` |
+| `kuzad2 start` | Start all daemons in the background |
+| `kuzad2 stop` | Stop all daemons cleanly |
+| `kuzad2 status` | Show daemon status, uptime, and model state |
+| `kuzad2 restart` | Restart all daemons |
+| `kuzad2 reload` | Send hot-reload signal (SIGUSR1) without downtime |
+| `kuzad2 config` | Write a default config file to `~/.kuza-v2/config.json` |
 
 ---
 
-## CLI Client — `codey2`
+## CLI Client — `kuza2`
 
 | Command | Description |
 |---------|-------------|
-| `codey2 "prompt"` | Send a task to the running daemon, or run standalone if no daemon is active |
-| `codey2 status` | Show full system status |
-| `codey2 task list` | List recent tasks and their state |
-| `codey2 task <id>` | Get full details of a specific task |
-| `codey2 cancel <id>` | Cancel a pending or running task |
-| `codey2 --daemon` | Run in foreground daemon mode (for debugging) |
+| `kuza2 "prompt"` | Send a task to the running daemon, or run standalone if no daemon is active |
+| `kuza2 status` | Show full system status |
+| `kuza2 task list` | List recent tasks and their state |
+| `kuza2 task <id>` | Get full details of a specific task |
+| `kuza2 cancel <id>` | Cancel a pending or running task |
+| `kuza2 --daemon` | Run in foreground daemon mode (for debugging) |
 
 ### CLI Flags
 
@@ -52,7 +52,7 @@
 | Command | Description |
 |---------|-------------|
 | `/read <file>` | Load a file into the current context |
-| `/diff [file]` | Show what Codey changed in this session |
+| `/diff [file]` | Show what Kuza changed in this session |
 | `/undo [file]` | Restore a file to its previous version |
 | `/search <pattern>` | Grep across all project files |
 | `/context` | Show which files are currently loaded |

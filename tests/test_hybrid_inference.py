@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for Codey-v2 inference backend (v2.7.0).
+Tests for Kuza-v2 inference backend (v2.7.0).
 
 Tests the current ChatCompletionBackend (single HTTP backend using
 llama-server's /v1/chat/completions endpoint on port 8080).

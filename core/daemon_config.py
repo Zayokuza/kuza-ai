@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Daemon configuration for Codey-v2.
+Daemon configuration for Kuza-v2.
 
-Loads configuration from ~/.codey-v2/config.json
+Loads configuration from ~/.kuza-v2/config.json
 Provides defaults for all settings.
 """
 
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 # Configuration directory
-CONFIG_DIR = Path.home() / ".codey-v2"
+CONFIG_DIR = Path.home() / ".kuza-v2"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Ensure config directory exists
@@ -21,9 +21,9 @@ CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_CONFIG: Dict[str, Any] = {
     # Daemon settings
     "daemon": {
-        "pid_file": str(Path.home() / ".codey-v2/codey-v2.pid"),
-        "socket_file": str(Path.home() / ".codey-v2/codey-v2.sock"),
-        "log_file": str(Path.home() / ".codey-v2/codey-v2.log"),
+        "pid_file": str(Path.home() / ".kuza-v2/kuza-v2.pid"),
+        "socket_file": str(Path.home() / ".kuza-v2/kuza-v2.sock"),
+        "log_file": str(Path.home() / ".kuza-v2/kuza-v2.log"),
         "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR
     },
     
@@ -43,7 +43,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     
     # State database settings
     "state": {
-        "db_path": str(Path.home() / ".codey-v2/state.db"),
+        "db_path": str(Path.home() / ".kuza-v2/state.db"),
         "cleanup_old_actions_hours": 24,
     },
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Learning manager for Codey-v2.
+Learning manager for Kuza-v2.
 
 Integrates:
 - User preference learning
 - Error pattern database
 - Strategy effectiveness tracking
 
-Provides unified interface for Codey-v2 to learn and improve over time.
+Provides unified interface for Kuza-v2 to learn and improve over time.
 """
 
 import time
@@ -22,7 +22,7 @@ from core.strategy_tracker import get_strategy_tracker, StrategyTracker
 
 class LearningManager:
     """
-    Unified learning manager for Codey-v2.
+    Unified learning manager for Kuza-v2.
 
     Coordinates learning across:
     - Preferences (user style)

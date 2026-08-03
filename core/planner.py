@@ -1,11 +1,11 @@
 """
 Plan mode — think before acting on complex tasks.
-Codey writes a short plan, user approves, then executes.
+Kuza writes a short plan, user approves, then executes.
 """
 from utils.logger import console, info, warning, separator
 from core.orchestrator import is_complex  # single shared implementation
 
-PLAN_SYSTEM_PROMPT = """You are Codey's planning module. When given a task, write a concise action plan.
+PLAN_SYSTEM_PROMPT = """You are Kuza's planning module. When given a task, write a concise action plan.
 
 Format your plan as numbered steps. Each step should be ONE specific action:
 - "Create file X with Y"

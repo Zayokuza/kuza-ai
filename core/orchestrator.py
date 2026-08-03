@@ -502,7 +502,7 @@ def run_queue(queue, yolo=False):
         from core.display import console
         console.print('\n  [yellow]Task queue paused. Resume with:[/yellow]')
         if queue._path:
-            console.print(f'  [cyan]codey --session {queue._path.stem}[/cyan]')
+            console.print(f'  [cyan]kuza --session {queue._path.stem}[/cyan]')
         console.print()
     finally:
         signal.signal(signal.SIGINT, old_handler)
