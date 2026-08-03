@@ -52,6 +52,9 @@ make -C docs html
 - **Architecture**: Modules should be loosely coupled for easy maintenance and scalability.
 
 - HTTP library: urllib
+- Test framework: pytest
+- Naming: snake_case
+- Imports: absolute
 # Notes
 
 - Ensure all dependencies are installed by running `pip install -r requirements.txt`.

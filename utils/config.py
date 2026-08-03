@@ -177,6 +177,7 @@ PLANNER_MODEL_PATH = Path(os.environ.get(
     "CODEY_PLANNER_MODEL",
     Path.home() / "models" / "qwen2.5-0.5b" / "planner-kuza.gguf"
 ))
+SECONDARY_MODEL_PATH = PLANNER_MODEL_PATH  # legacy compatibility
 PLANND_SERVER_PORT = int(os.environ.get("CODEY_PLANND_PORT", "8081"))
 
 # ── 7B model memory-mapping settings — Change 2 ─────────────────────────────
