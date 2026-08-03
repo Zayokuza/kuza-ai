@@ -1290,7 +1290,11 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             # After write_file for a simple create request — force exit the loop.
             # The 7B model ignores "don't run commands" instructions and keeps
             # calling read_file/shell, so we must hard-stop here.
-            if name == "write_file" and not any(k in user_message.lower() for k in ["run", "execute", "test", "start", "launch"]):
+            if (
+                name == "write_file"
+                and not is_error(last_tool_result, name)
+                and not any(k in user_message.lower() for k in ["run", "execute", "test", "start", "launch"])
+            ):
                 _written_path = args.get("path", "the file")
                 # Exception: for bug-fix requests with existing test files, inject a test run
                 # instead of returning early — ensures fixes are actually verified.
