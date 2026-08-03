@@ -32,7 +32,7 @@ def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
         # to write_file with the full intended content instead of retrying blindly.
         lines = content.splitlines()
         return (
-            f"[PATCH_FAILED] old_str not found in {path} ({len(lines)} lines).\n"
+            f"[ERROR] String not found. [PATCH_FAILED] old_str not found in {path} ({len(lines)} lines).\n"
             "The file may have changed since you last read it. "
             "Use write_file with the complete intended content, or re-read the file "
             "and issue a corrected patch.\n"

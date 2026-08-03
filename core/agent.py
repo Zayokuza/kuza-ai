@@ -426,10 +426,7 @@ def is_error(result, tool_name):
 
 def is_hallucination(response, user_message, tools_used):
     """
-    Lightweight hallucination check — catches only the most obvious cases.
-
-    With recursive self-critique (Phase 2+), most hallucination is caught
-    during inference. This is a final safety net for clear false claims.
+    Detect obvious claims that work was completed without the required tool.
 
     Returns:
         Tuple of (false_file, false_run) booleans
@@ -437,24 +434,56 @@ def is_hallucination(response, user_message, tools_used):
     msg_lower = user_message.lower()
     resp_lower = response.lower()
 
-    needs_file = any(k in msg_lower for k in ["create", "write", "make", "build", "implement"])
+    needs_file = any(
+        k in msg_lower
+        for k in ["create", "write", "make", "build", "implement", "modify", "add"]
+    )
     needs_run = any(k in msg_lower for k in ["run", "execute", "test"])
 
-    file_done = any("write_file" in s or "patch_file" in s for s in tools_used)
-    shell_done = any("shell" in s for s in tools_used)
+    file_done = any(
+        "write_file" in str(tool) or "patch_file" in str(tool)
+        for tool in tools_used
+    )
+    shell_done = any("shell" in str(tool) for tool in tools_used)
 
-    # Flag 1: strong past-tense completion claims with zero tool usage
-    _strong_claims = ["has been created", "i created", "i've created", "has been written"]
-    false_file = (needs_file and not file_done and not tools_used
-                  and any(c in resp_lower for c in _strong_claims))
+    file_claims = [
+        "has been created",
+        "have created",
+        "i created",
+        "i've created",
+        "successfully created",
+        "has been successfully created",
+        "has been written",
+        "have written",
+        "i wrote",
+        "i have written",
+        "i modified",
+        "already implemented",
+    ]
 
-    # Flag 2: model showed code in markdown blocks instead of using write_file
-    # (common failure mode — model "explains" instead of acting)
-    if needs_file and not file_done and not tools_used and "```" in response:
+    run_claims = [
+        "i ran",
+        "i ran the",
+        "ran successfully",
+        "executed successfully",
+        "tests passed",
+        "tests and they passed",
+    ]
+
+    false_file = (
+        needs_file
+        and not file_done
+        and any(claim in resp_lower for claim in file_claims)
+    )
+
+    if needs_file and not file_done and "```" in response:
         false_file = True
 
-    false_run = (needs_run and not shell_done and not tools_used
-                 and any(c in resp_lower for c in ["ran successfully", "executed successfully"]))
+    false_run = (
+        needs_run
+        and not shell_done
+        and any(claim in resp_lower for claim in run_claims)
+    )
 
     return false_file, false_run
 
