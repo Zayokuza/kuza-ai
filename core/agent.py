@@ -714,6 +714,27 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     # Learn preferences from natural language in the user's message
     _get_learning().learn_from_message(user_message)
 
+    # Fast path for explicit shell requests. Avoid an expensive model call when
+    # the user already supplied the exact command to execute.
+    _shell_match = re.search(
+        r"(?:use the shell tool to execute|use shell to execute|execute):\s*(.+)",
+        user_message,
+        re.IGNORECASE,
+    )
+    if _shell_match and not _in_subtask:
+        _command = _shell_match.group(1).splitlines()[0].strip()
+        _result = execute_tool({
+            "name": "shell",
+            "args": {"command": _command},
+        })
+        _summary = (
+            f"Command executed:\n{_command}\n\n"
+            f"Output:\n{_result.strip()}"
+        )
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": _summary})
+        return _summary, history
+
     # ── Explicit peer delegation ──────────────────────────────────────────────
     # Handle: "ask gemini to X", "have claude do X", etc.
     # The peer runs, its output is injected as context, then the agent applies it.

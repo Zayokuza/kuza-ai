@@ -9,8 +9,18 @@ from utils.logger import info, warning
 from prompts.system_prompt import GUIDANCE_HTTP_SERVER, GUIDANCE_HTTP_TESTING, GUIDANCE_SQLITE, GUIDANCE_PERSISTENCE
 
 PLAN_PROMPT = """Break the task into 2-8 numbered steps. Max 8 steps.
-Each step must be a single concrete action: create a file, edit a file, run a command, or delegate to a peer CLI.
+Each step must be a single concrete action: research information, inspect files, create a checkpoint, create or edit a file, run a command, validate results, roll back, or delegate to a peer CLI.
 Each step is ONE short sentence describing WHAT to do. Do NOT write any code in the plan.
+
+PLANNING WORKFLOW:
+- Inspect existing project files before implementing changes.
+- Research official documentation or reliable sources when required information is missing, unfamiliar, current, or uncertain.
+- Create a Git checkpoint before adding or modifying files.
+- Implement every part required by the user's overall goal.
+- Run syntax checks and relevant tests after implementation.
+- Verify the real output or behavior instead of assuming success.
+- If validation fails, fix and retry; roll back to the checkpoint if the change cannot be validated.
+- Report missing tools, permissions, dependencies, data, or capabilities instead of pretending completion.
 NEVER include "open", "save", or "navigate" steps (too vague).
 Running tests (e.g. "run pytest") and committing code (e.g. "git commit") ARE valid steps.
 If the user asks to run the script, add/insert records, or prove/demonstrate functionality, include EACH of those as a separate numbered step with the shell command to run.

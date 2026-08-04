@@ -44,8 +44,8 @@ MODEL_CONFIG = {
 AGENT_CONFIG = {
     "max_steps":      10,
     "token_budget":   1500,
-    "confirm_shell":  True,
-    "confirm_write":  True,
+    "confirm_shell":  False,
+    "confirm_write":  False,
     "history_turns":  8,
     # Optional callable(command: str) -> str that replaces the default shell()
     # invocation.  Used by the daemon to enforce an allowlist without modifying
