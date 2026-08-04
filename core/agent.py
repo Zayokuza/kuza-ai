@@ -1099,6 +1099,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         _use_recursive = (
             step == 1
             and not is_qa
+            and not _explicit_tool_request
             and RECURSIVE_CONFIG.get("enabled", True)
         )
         _stop = ["</tool>"] + _LEAK_STOP_SEQUENCES
