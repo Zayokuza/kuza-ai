@@ -73,6 +73,53 @@ ROGUE_TAG_MAP = {
     "note_save": "note_save", "note_forget": "note_forget",
 }
 
+_EMAIL_ADDRESS_RE = re.compile(
+    r"(?<![\w.+-])([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(?![\w.-])"
+)
+_EMAIL_LOOKUP_ACTION_RE = re.compile(
+    r"\b(?:search|find|check|scan|lookup|look\s+up|investigate)\b",
+    re.IGNORECASE,
+)
+_EMAIL_ACCOUNT_RE = re.compile(
+    r"\b(?:accounts?|registered|registration|signed\s+up|signups?|"
+    r"linked|used\s+on|holehe)\b",
+    re.IGNORECASE,
+)
+_IMPLEMENTATION_REQUEST_RE = re.compile(
+    r"\b(?:create|write|build|implement|code|develop)\b.*"
+    r"\b(?:file|script|program|module|function|class|app|tool|feature|capability)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def detect_email_account_lookup(message: str):
+    """Return the requested email for a direct account-registration lookup.
+
+    The deterministic route is intentionally narrow: the message must contain
+    an email address, a lookup verb, and account-registration language. Requests
+    to build software are left to the normal coding workflow.
+    """
+    if not isinstance(message, str) or _IMPLEMENTATION_REQUEST_RE.search(message):
+        return None
+
+    match = _EMAIL_ADDRESS_RE.search(message)
+    if not match:
+        return None
+
+    candidate = match.group(1)
+
+    # A bare email entered at Kuza's prompt means: check its registrations.
+    if message.strip().lower() == candidate.lower():
+        return candidate
+
+    if not _EMAIL_LOOKUP_ACTION_RE.search(message):
+        return None
+    if not _EMAIL_ACCOUNT_RE.search(message):
+        return None
+
+    return candidate
+
 HALLUCINATION_MARKERS = [
     # ChatML tokens — always strip (model leaking special tokens)
     "<|im_start|>", "<|im_end|>",
@@ -767,6 +814,23 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
 
     # Learn preferences from natural language in the user's message
     _get_learning().learn_from_message(user_message)
+
+    # Email-registration lookups already have a purpose-built local tool. Route
+    # them deterministically so a coding-focused model cannot invent search.py
+    # or claim that comparing a hardcoded string searched online accounts.
+    _lookup_email = detect_email_account_lookup(user_message)
+    if _lookup_email and not _in_subtask:
+        info(f"Checking account registrations for {_lookup_email} with Holehe...")
+        _result = execute_tool({
+            "name": "holehe",
+            "args": {"email": _lookup_email, "only_used": True},
+        })
+        _summary = _result.strip()
+        if _summary.lower().startswith("holehe error:"):
+            _summary = "[INCOMPLETE] " + _summary
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": _summary})
+        return _summary, history
 
     # Fast path for explicit shell requests. Avoid an expensive model call when
     # the user already supplied the exact command to execute.

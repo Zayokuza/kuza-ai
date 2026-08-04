@@ -8,7 +8,7 @@ from utils.logger import console, info, success, error, warning, separator
 from utils.config import KUZA_VERSION
 from core.loader_v2 import get_loader
 from core.inference_v2 import infer, was_last_streamed
-from core.agent import run_agent
+from core.agent import detect_email_account_lookup, run_agent
 from core import context as ctx
 from core.sysmon import get_monitor
 
@@ -175,6 +175,17 @@ def _run_with_plan(prompt: str, history: list, yolo: bool, use_plan: bool, no_pl
     import re
     from pathlib import Path
     import os
+
+    # Purpose-built single-tool requests must bypass the coding planner. The
+    # 0.5B planner otherwise tends to turn searches into invented Python files.
+    if detect_email_account_lookup(prompt):
+        return run_agent(
+            prompt,
+            history,
+            yolo=yolo,
+            use_plan=use_plan,
+            no_plan=True,
+        )
 
     # ── Peer delegation gate ──────────────────────────────────────────────────
     # For SINGLE-STEP peer directives ("ask claude to X" with no follow-up),
