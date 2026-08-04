@@ -390,7 +390,9 @@ class StateStore:
         """Get recent checkpoints."""
         with self._lock:
             cur = self._conn.execute(
-                "SELECT * FROM checkpoints ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM checkpoints "
+                "ORDER BY created_at DESC, id DESC LIMIT ?",
+                (limit,),
             )
             return [dict(row) for row in cur.fetchall()]
 

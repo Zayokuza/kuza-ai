@@ -53,13 +53,16 @@ class Filesystem:
         self.workspace = workspace or WORKSPACE_ROOT
         self.allow_self_modification = allow_self_modification
         self._last_diff: Optional[str] = None
-        self._checkpoint_created: bool = False
+        self._last_checkpoint_id: Optional[str] = None
 
-    def _require_checkpoint(self, path: Path) -> None:
+    def _require_checkpoint(self, path: Path) -> str:
         """
         Create checkpoint before modifying core files.
-        
-        Only creates one checkpoint per session for efficiency.
+
+        Checkpoints are intentionally created for every source mutation. They
+        are now targeted and lightweight, and a single global "already made a
+        checkpoint" flag could otherwise leave later tasks without a usable
+        pre-change snapshot.
         
         Args:
             path: Path being modified
@@ -67,16 +70,14 @@ class Filesystem:
         Raises:
             FilesystemAccessError: If checkpoint creation fails
         """
-        if self._checkpoint_created:
-            return  # Already created checkpoint this session
-        
         try:
-            create_checkpoint(
+            checkpoint_id = create_checkpoint(
                 reason=f"Self-modification: {path.name}",
                 files_modified=[str(path)]
             )
-            self._checkpoint_created = True
+            self._last_checkpoint_id = checkpoint_id
             info(f"Checkpoint created before modifying {path}")
+            return checkpoint_id
         except Exception as e:
             raise FilesystemAccessError(f"Failed to create checkpoint: {e}")
     

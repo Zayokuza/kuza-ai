@@ -136,26 +136,28 @@ class TestCheckpointEnforcement:
         # The _require_checkpoint method should exist
         assert hasattr(fs, '_require_checkpoint')
         
-        # The _checkpoint_created flag should track state
-        assert hasattr(fs, '_checkpoint_created')
-        assert fs._checkpoint_created == False
+        # The last successful checkpoint ID should be tracked for rollback.
+        assert hasattr(fs, '_last_checkpoint_id')
+        assert fs._last_checkpoint_id is None
 
-    def test_checkpoint_flag_prevents_duplicate(self):
-        """Checkpoint should only be created once per session."""
+    def test_each_core_mutation_gets_a_fresh_checkpoint(self, monkeypatch):
+        """Later tasks must not reuse a stale session-wide checkpoint."""
+        calls = []
+
+        def fake_checkpoint(reason, files_modified):
+            calls.append((reason, files_modified))
+            return f"checkpoint-{len(calls)}"
+
+        monkeypatch.setattr("core.filesystem.create_checkpoint", fake_checkpoint)
         fs = Filesystem(workspace=self.workspace, allow_self_modification=True)
-        
-        # After first checkpoint, flag should be set
-        fs._checkpoint_created = True
-        
-        # _require_checkpoint should return immediately
-        # (won't actually create checkpoint in test env)
-        try:
-            fs._require_checkpoint(CODE_DIR / "test.py")
-        except Exception:
-            pass  # Expected in test env without git
-        
-        # Flag should still be True
-        assert fs._checkpoint_created == True
+
+        first = fs._require_checkpoint(CODE_DIR / "core" / "agent.py")
+        second = fs._require_checkpoint(CODE_DIR / "core" / "agent.py")
+
+        assert first == "checkpoint-1"
+        assert second == "checkpoint-2"
+        assert len(calls) == 2
+        assert fs._last_checkpoint_id == "checkpoint-2"
 
 
 if __name__ == "__main__":
