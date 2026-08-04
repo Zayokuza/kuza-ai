@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# codeyd2 - Codey-v2 Daemon Manager
+# kuzad2 - Kuza-v2 Daemon Manager
 #
 # Commands:
 #   start   - Start both daemons (main + plannd)
@@ -17,11 +17,11 @@
 set -e
 
 CODEY_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DAEMON_DIR="$HOME/.codey-v2"
+DAEMON_DIR="$HOME/.kuza-v2"
 
 # Main daemon files
-PID_FILE="$DAEMON_DIR/codey-v2.pid"
-LOG_FILE="$DAEMON_DIR/codey-v2.log"
+PID_FILE="$DAEMON_DIR/kuza-v2.pid"
+LOG_FILE="$DAEMON_DIR/kuza-v2.log"
 
 # Planner daemon files
 PLANND_PID_FILE="$DAEMON_DIR/plannd.pid"
@@ -143,7 +143,7 @@ start_daemon() {
         fi
     fi
 
-    echo "Starting Codey-v2 daemon..."
+    echo "Starting Kuza-v2 daemon..."
 
     # Clear stale Python bytecode cache so code changes take effect immediately
     find "$CODEY_V2_DIR" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -396,7 +396,7 @@ PYEOF
         rm -f "$TMPSCRIPT"
         ;;
     *)
-        echo "Usage: codeyd2 {start|stop|status|restart|reload|config}"
+        echo "Usage: kuzad2 {start|stop|status|restart|reload|config}"
         echo ""
         echo "Commands:"
         echo "  start   - Start main daemon and planner daemon"
