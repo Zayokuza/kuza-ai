@@ -10,7 +10,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.agent import is_hallucination, is_read_only_request
+from core.agent import (
+    _extract_safe_read_only_shell_block,
+    _is_safe_read_only_shell_command,
+    is_hallucination,
+    is_read_only_request,
+)
 
 
 class TestHallucinationDetection:
@@ -253,6 +258,22 @@ class TestHallucinationDetection:
 
         assert false_file is False
         assert false_run is False
+
+    def test_extracts_safe_fenced_shell_search(self):
+        """A fenced grep command can be rescued as a real tool call."""
+        response = '```shell\ngrep -r "Codey\\|codey" .\n```'
+        command = _extract_safe_read_only_shell_block(response)
+        assert command == 'grep -r "Codey\\|codey" .'
+
+    def test_rejects_mutating_fenced_shell_command(self):
+        """Mutating fenced shell commands must never be rescued."""
+        response = "```shell\nrm -rf output.py\n```"
+        assert _extract_safe_read_only_shell_block(response) == ""
+
+    def test_rejects_chained_shell_mutation(self):
+        """A safe-looking search cannot hide a chained mutation."""
+        command = "grep -r Codey .; rm output.py"
+        assert _is_safe_read_only_shell_command(command) is False
 
 
 if __name__ == "__main__":

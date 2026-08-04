@@ -567,6 +567,83 @@ def is_read_only_request(message):
     return _file_change_intent(message)[1]
 
 
+def _is_safe_read_only_shell_command(command):
+    """Allow only single, non-mutating inspection commands."""
+    import shlex
+
+    if not isinstance(command, str):
+        return False
+
+    command = command.strip()
+    if not command or "\n" in command or "$(" in command or "`" in command:
+        return False
+
+    try:
+        lexer = shlex.shlex(
+            command,
+            posix=True,
+            punctuation_chars=";&|<>",
+        )
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+
+    if not tokens:
+        return False
+
+    blocked_operators = {
+        ";", "&", "&&", "|", "||", ">", ">>", "<", "<<",
+    }
+    if any(token in blocked_operators for token in tokens):
+        return False
+
+    command_name = tokens[0]
+
+    if command_name == "git":
+        return (
+            len(tokens) > 1
+            and tokens[1] in {
+                "grep", "status", "diff", "log",
+                "show", "ls-files", "rev-parse",
+            }
+        )
+
+    if command_name == "find":
+        blocked_find_actions = {
+            "-delete", "-exec", "-execdir", "-ok", "-okdir",
+            "-fprint", "-fprintf",
+        }
+        return not any(token in blocked_find_actions for token in tokens)
+
+    if command_name == "sed":
+        return (
+            any(token == "-n" or token.startswith("-n") for token in tokens[1:])
+            and not any(token.startswith("-i") for token in tokens[1:])
+        )
+
+    return command_name in {
+        "grep", "rg", "ls", "pwd", "cat", "head", "tail",
+        "wc", "stat", "file", "du", "which", "type",
+    }
+
+
+def _extract_safe_read_only_shell_block(response):
+    """Extract one safe command from a fenced shell block."""
+    match = re.search(
+        r"```(?:shell|bash|sh)\s*\n(.*?)```",
+        response,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return ""
+
+    command = match.group(1).strip()
+    if not _is_safe_read_only_shell_command(command):
+        return ""
+    return command
+
+
 def is_hallucination(response, user_message, tools_used):
     """
     Detect obvious claims that work was completed without the required tool.
@@ -1356,6 +1433,20 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         response = clean_response(response)
         tool_dict = parse_tool_call(response)
 
+        # Small local models sometimes return a fenced shell command instead
+        # of the required tool-call envelope. Rescue only commands proven to
+        # be read-only; all other shell blocks remain ordinary text.
+        if not tool_dict and _read_only_mode:
+            rescued_command = _extract_safe_read_only_shell_block(response)
+            if rescued_command:
+                info(
+                    "Recovered safe read-only shell command from response."
+                )
+                tool_dict = {
+                    "name": "shell",
+                    "args": {"command": rescued_command},
+                }
+
         # ── Malformed tool call: <tool> tag present but JSON failed to parse ──
         # The model tried to call a tool but emitted invalid JSON (e.g. missing
         # quote: {"name": patch_file"}).  Surface this as an explicit retry so
@@ -1412,6 +1503,28 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                  messages.append({"role": "user", "content": "Just answer my question directly with text. No tools needed. Final answer format: 'I can help with [tasks].'"})
                  continue
             
+            # Read-only mode also protects direct shell tool calls.
+            if _read_only_mode and name == "shell":
+                command = args.get("command", "")
+                if not _is_safe_read_only_shell_command(command):
+                    warning(
+                        "Blocked mutating or unsupported shell command "
+                        "during read-only task."
+                    )
+                    messages.append({
+                        "role": "assistant",
+                        "content": _format_tool_for_history(tool_dict),
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "The original task is read-only. Use one safe "
+                            "inspection command such as git grep, grep, rg, "
+                            "ls, find without actions, or sed -n."
+                        ),
+                    })
+                    continue
+
             # Explicit read-only requests may inspect, but never modify files.
             if _read_only_mode and name in [
                 "write_file", "patch_file", "append_file", "delete_file"
