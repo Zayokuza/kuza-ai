@@ -579,12 +579,34 @@ def is_hallucination(response, user_message, tools_used):
 
     needs_file, _ = _file_change_intent(user_message)
     needs_run = any(k in msg_lower for k in ["run", "execute", "test"])
+    inspection_verbs = (
+        "search", "find", "locate", "inspect", "review", "audit",
+        "examine", "analyze", "analyse", "check", "verify", "list",
+    )
+    inspection_scopes = (
+        "repository", "repo", "project", "codebase",
+        "file", "files", "directory", "folder",
+    )
+    needs_inspection = (
+        any(
+            re.search(r"\b" + re.escape(word) + r"\b", msg_lower)
+            for word in inspection_verbs
+        )
+        and any(
+            re.search(r"\b" + re.escape(scope) + r"\b", msg_lower)
+            for scope in inspection_scopes
+        )
+    )
 
     file_done = any(
         "write_file" in str(tool) or "patch_file" in str(tool)
         for tool in tools_used
     )
     shell_done = any("shell" in str(tool) for tool in tools_used)
+    inspection_done = any(
+        any(name in str(tool) for name in ("shell", "read_file", "list_dir"))
+        for tool in tools_used
+    )
 
     file_claims = [
         "has been created",
@@ -620,9 +642,12 @@ def is_hallucination(response, user_message, tools_used):
         false_file = True
 
     false_run = (
-        needs_run
-        and not shell_done
-        and any(claim in resp_lower for claim in run_claims)
+        (
+            needs_run
+            and not shell_done
+            and any(claim in resp_lower for claim in run_claims)
+        )
+        or (needs_inspection and not inspection_done)
     )
 
     return false_file, false_run
@@ -1247,6 +1272,18 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     if is_qa:
         messages.append({"role": "user", "content": "IMPORTANT: This is a question or conversation. Respond with plain text only. DO NOT use any tools. Keep your response concise — 2-3 sentences max unless more detail is needed."})
 
+    if _read_only_mode:
+        messages.append({
+            "role": "user",
+            "content": (
+                "IMPORTANT: This task is explicitly read-only. Never create, "
+                "modify, append, delete, stage, or commit files. You must gather "
+                "real evidence using read_file, list_dir, or a read-only shell "
+                "command before reporting results. Never claim that no matches "
+                "exist without tool evidence."
+            ),
+        })
+
     keep = AGENT_CONFIG["history_turns"] * 2
     messages.extend(history[-keep:] if len(history) > keep else history)
     messages.append({"role": "user", "content": enriched})
@@ -1563,17 +1600,37 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 # the model needs to reconstruct a correct write_file call.
                 messages.append({"role": "user", "content": "Tool result: " + last_tool_result[:2000] + "\nNext action or final answer:"})
             continue
-        false_file, false_run = is_hallucination(response, user_message, tools_used)
+        false_file, false_run = is_hallucination(
+            response, user_message, tools_used
+        )
         if (false_file or false_run) and hallucination_count == 0:
             hallucination_count += 1
-            missing = []
-            if false_file: missing.append("write_file")
-            if false_run:  missing.append("shell")
-            fname_match = re.search(r"(\w+\.py)", user_message)
-            fname = fname_match.group(1) if fname_match else "output.py"
-            tool_hint = '<tool>\n{"name": "write_file", "args": {"path": "' + fname + '", "content": "YOUR CODE"}}\n</tool>'
             messages.append({"role": "assistant", "content": response})
-            messages.append({"role": "user", "content": "You must call " + " and ".join(missing) + ".\nOutput ONLY a tool call:\n" + tool_hint})
+
+            if false_file:
+                fname_match = re.search(r"(\w+\.py)", user_message)
+                fname = fname_match.group(1) if fname_match else "output.py"
+                tool_hint = (
+                    '<tool>\n{"name": "write_file", "args": '
+                    '{"path": "' + fname + '", "content": "YOUR CODE"}}'
+                    '\n</tool>'
+                )
+                correction_message = (
+                    "You must call write_file before claiming the file exists. "
+                    "Output ONLY a tool call:\n" + tool_hint
+                )
+            else:
+                correction_message = (
+                    "You must gather real evidence before answering. Call shell "
+                    "now with a concrete read-only command that verifies the "
+                    "request. Output ONLY the actual tool call, with no "
+                    "placeholder and no final answer yet."
+                )
+
+            messages.append({
+                "role": "user",
+                "content": correction_message,
+            })
             continue
         # Never accept a useless generic final response after a tool ran.
         # Preserve the actual tool evidence so Kuza does not hide results

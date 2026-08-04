@@ -213,7 +213,7 @@ class TestHallucinationDetection:
         )
 
         assert false_file is False
-        assert false_run is False
+        assert false_run is True
         assert is_read_only_request(user_message) is True
 
     def test_without_editing_is_read_only(self):
@@ -230,6 +230,29 @@ class TestHallucinationDetection:
 
         assert is_read_only_request(message) is False
         assert false_file is True
+
+    def test_repository_search_requires_tool_evidence(self):
+        """Repository search conclusions require an inspection tool."""
+        response = "No matching references were found."
+        message = "Search the entire repository for Codey references."
+
+        false_file, false_run = is_hallucination(response, message, [])
+
+        assert false_file is False
+        assert false_run is True
+
+    def test_repository_search_accepts_shell_evidence(self):
+        """A completed shell search satisfies the evidence requirement."""
+        response = "Two matching references were found."
+        message = "Search the entire repository for Codey references."
+        tools = ['shell:{"command": "git grep -n -i codey"}']
+
+        false_file, false_run = is_hallucination(
+            response, message, tools
+        )
+
+        assert false_file is False
+        assert false_run is False
 
 
 if __name__ == "__main__":
