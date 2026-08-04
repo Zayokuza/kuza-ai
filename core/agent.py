@@ -628,6 +628,21 @@ def _is_safe_read_only_shell_command(command):
     }
 
 
+def _extract_direct_safe_read_only_shell_command(message):
+    """Return a literal safe inspection command entered at the prompt."""
+    if not isinstance(message, str):
+        return ""
+
+    command = message.strip()
+    if not command or "\n" in command:
+        return ""
+
+    if not _is_safe_read_only_shell_command(command):
+        return ""
+
+    return command
+
+
 def _extract_safe_read_only_shell_block(response):
     """Extract one safe command from a fenced shell block."""
     match = re.search(
@@ -1003,6 +1018,22 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         _summary = _result.strip()
         if _summary.lower().startswith("holehe error:"):
             _summary = "[INCOMPLETE] " + _summary
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": _summary})
+        return _summary, history
+
+    # Fast path for literal safe inspection commands entered directly at the
+    # prompt. Execute them deterministically instead of asking the model to
+    # interpret the command and potentially fabricate its output.
+    _direct_shell_command = _extract_direct_safe_read_only_shell_command(
+        user_message
+    )
+    if _direct_shell_command and not _in_subtask:
+        _result = execute_tool({
+            "name": "shell",
+            "args": {"command": _direct_shell_command},
+        })
+        _summary = _result.strip() or "[No output]"
         history.append({"role": "user", "content": user_message})
         history.append({"role": "assistant", "content": _summary})
         return _summary, history

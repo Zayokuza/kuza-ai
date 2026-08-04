@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.agent import (
+    _extract_direct_safe_read_only_shell_command,
     _extract_safe_read_only_shell_block,
     _ground_read_only_response,
     _is_safe_read_only_shell_command,
@@ -276,6 +277,52 @@ class TestHallucinationDetection:
         command = "grep -r Codey .; rm output.py"
         assert _is_safe_read_only_shell_command(command) is False
 
+
+
+def test_extracts_direct_safe_read_only_shell_command():
+    """A literal safe shell command should be routed without inference."""
+    command = "grep -rE 'TODO|FIXME' ."
+
+    assert _extract_direct_safe_read_only_shell_command(command) == command
+
+
+def test_rejects_direct_mutating_shell_command():
+    """A literal mutating command must not enter the safe fast path."""
+    assert _extract_direct_safe_read_only_shell_command(
+        "rm -rf output.py"
+    ) == ""
+
+
+def test_run_agent_routes_direct_shell_without_inference(monkeypatch):
+    """Raw safe commands must execute instead of receiving model-generated output."""
+    import core.agent as agent_module
+
+    class LearningStub:
+        def learn_from_message(self, _message):
+            return None
+
+    executed = []
+
+    def fake_execute_tool(tool_dict):
+        executed.append(tool_dict)
+        return "core/example.py:10:# TODO real result"
+
+    def fail_inference(*_args, **_kwargs):
+        raise AssertionError("Inference must not run for a direct safe command.")
+
+    monkeypatch.setattr(agent_module, "_get_learning", lambda: LearningStub())
+    monkeypatch.setattr(agent_module, "execute_tool", fake_execute_tool)
+    monkeypatch.setattr(agent_module, "infer", fail_inference)
+
+    command = "grep -rE 'TODO|FIXME' ."
+    result, history = agent_module.run_agent(command, [])
+
+    assert executed == [{
+        "name": "shell",
+        "args": {"command": command},
+    }]
+    assert result == "core/example.py:10:# TODO real result"
+    assert history[-1]["content"] == result
 
 
 def test_false_negative_is_replaced_with_tool_evidence():
