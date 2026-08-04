@@ -2,28 +2,27 @@
 """
 Daemon configuration for Kuza-v2.
 
-Loads configuration from ~/.kuza-v2/config.json
+Loads configuration from KUZA_STATE_DIR/config.json (default: ~/.kuza-v2).
 Provides defaults for all settings.
 """
 
+import copy
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+from utils.config import KUZA_STATE_DIR
 
 # Configuration directory
-CONFIG_DIR = Path.home() / ".kuza-v2"
+CONFIG_DIR = KUZA_STATE_DIR
 CONFIG_FILE = CONFIG_DIR / "config.json"
-
-# Ensure config directory exists
-CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default configuration
 DEFAULT_CONFIG: Dict[str, Any] = {
     # Daemon settings
     "daemon": {
-        "pid_file": str(Path.home() / ".kuza-v2/kuza-v2.pid"),
-        "socket_file": str(Path.home() / ".kuza-v2/kuza-v2.sock"),
-        "log_file": str(Path.home() / ".kuza-v2/kuza-v2.log"),
+        "pid_file": str(KUZA_STATE_DIR / "kuza-v2.pid"),
+        "socket_file": str(KUZA_STATE_DIR / "kuza-v2.sock"),
+        "log_file": str(KUZA_STATE_DIR / "kuza-v2.log"),
         "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR
     },
     
@@ -43,7 +42,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     
     # State database settings
     "state": {
-        "db_path": str(Path.home() / ".kuza-v2/state.db"),
+        "db_path": str(KUZA_STATE_DIR / "state.db"),
         "cleanup_old_actions_hours": 24,
     },
 }
@@ -71,12 +70,12 @@ class DaemonConfig:
                 return self._merge_configs(DEFAULT_CONFIG, user_config)
             except (json.JSONDecodeError, IOError) as e:
                 print(f"Warning: Could not load config file: {e}")
-                return DEFAULT_CONFIG.copy()
-        return DEFAULT_CONFIG.copy()
+                return copy.deepcopy(DEFAULT_CONFIG)
+        return copy.deepcopy(DEFAULT_CONFIG)
     
     def _merge_configs(self, base: Dict, override: Dict) -> Dict:
         """Recursively merge override config into base config."""
-        result = base.copy()
+        result = copy.deepcopy(base)
         for key, value in override.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = self._merge_configs(result[key], value)
@@ -117,14 +116,20 @@ class DaemonConfig:
     
     def save(self):
         """Save current configuration to file."""
+        self.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.config_file.parent.chmod(0o700)
         with open(self.config_file, 'w') as f:
             json.dump(self._config, f, indent=2)
+        self.config_file.chmod(0o600)
     
     def create_default_config(self) -> Path:
         """Create a default config file if it doesn't exist."""
+        self.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.config_file.parent.chmod(0o700)
         if not self.config_file.exists():
             with open(self.config_file, 'w') as f:
                 json.dump(DEFAULT_CONFIG, f, indent=2)
+        self.config_file.chmod(0o600)
         return self.config_file
     
     @property

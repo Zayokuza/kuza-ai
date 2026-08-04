@@ -31,7 +31,12 @@ from pathlib import Path
 from typing import Optional
 
 from utils.logger import info, warning, error, success
-from utils.config import LLAMA_SERVER_BIN, EMBED_MODEL_PATH, EMBED_SERVER_PORT
+from utils.config import (
+    LLAMA_SERVER_BIN,
+    EMBED_MODEL_PATH,
+    EMBED_SERVER_PORT,
+    KUZA_STATE_DIR,
+)
 
 # Host is always localhost
 _HOST = "127.0.0.1"
@@ -90,7 +95,7 @@ class EmbedServer:
             "--pooling", "mean",# OAI-compatible single vector per input
         ]
 
-        log_file = Path.home() / ".kuza-v2" / "embed-server.log"
+        log_file = KUZA_STATE_DIR / "embed-server.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
         log_fd = open(log_file, "a")

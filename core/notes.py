@@ -4,14 +4,15 @@ Persistent user notes for Kuza-v2.
 Simple key-value store for facts the user asks Kuza to remember
 (e.g., "my name is Ish", "I prefer tabs over spaces").
 
-Stored at ~/.kuza-v2/notes.json — survives across sessions.
+Stored at KUZA_STATE_DIR/notes.json — survives across sessions.
 """
 
 import json
 from pathlib import Path
 from typing import Optional
+from utils.config import KUZA_STATE_DIR
 
-_NOTES_FILE = Path.home() / ".kuza-v2" / "notes.json"
+_NOTES_FILE = KUZA_STATE_DIR / "notes.json"
 
 
 def _load() -> dict:
@@ -28,6 +29,11 @@ def _save(notes: dict):
     """Save notes to disk."""
     _NOTES_FILE.parent.mkdir(parents=True, exist_ok=True)
     _NOTES_FILE.write_text(json.dumps(notes, indent=2))
+    try:
+        _NOTES_FILE.parent.chmod(0o700)
+        _NOTES_FILE.chmod(0o600)
+    except OSError:
+        pass
 
 
 def add_note(key: str, value: str):

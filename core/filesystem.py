@@ -106,6 +106,15 @@ class Filesystem:
 
         path = path.resolve()
 
+        # Protected Kuza source requires explicit opt-in even when Kuza itself
+        # is the current workspace. Checking this before the general workspace
+        # rule closes the former "cwd == CODE_DIR" bypass.
+        if _is_core_file(str(path)) and not self.allow_self_modification:
+            raise FilesystemAccessError(
+                f"Access denied: {path} is protected Kuza source. "
+                "Enable self-modification with --allow-self-mod or ALLOW_SELF_MOD=1"
+            )
+
         # Check if path is within workspace
         try:
             path.relative_to(self.workspace)
@@ -130,6 +139,10 @@ class Filesystem:
         raise FilesystemAccessError(
             f"Access denied: {path} is outside workspace ({self.workspace})"
         )
+
+    def validate_path(self, path: Union[str, Path]) -> Path:
+        """Public path-validation entry point for higher-level file tools."""
+        return self._validate_path(path)
     
     def read(self, path: Union[str, Path]) -> str:
         """

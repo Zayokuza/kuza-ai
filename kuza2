@@ -1,430 +1,105 @@
 #!/usr/bin/env bash
-#
-# kuza2 - Kuza-v2 CLI Client
-#
-# If daemon is running, connects via Unix socket.
-# Otherwise, spawns direct mode.
-#
+# Kuza CLI launcher. Prompts stay in argv and are never interpolated into code.
+
+set -u
+umask 077
 
 KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DAEMON_DIR="$HOME/.kuza-v2"
+DAEMON_DIR="${KUZA_STATE_DIR:-$HOME/.kuza-v2}"
 PID_FILE="$DAEMON_DIR/kuza-v2.pid"
 SOCKET_FILE="$DAEMON_DIR/kuza-v2.sock"
 
-# Ensure daemon directory exists
 mkdir -p "$DAEMON_DIR"
+chmod 700 "$DAEMON_DIR" 2>/dev/null || true
 
-# Check if daemon is running
 is_daemon_running() {
-    if [ ! -f "$PID_FILE" ]; then
-        return 1
-    fi
-    
-    PID=$(cat "$PID_FILE" 2>/dev/null || echo "")
-    if [ -z "$PID" ]; then
-        return 1
-    fi
-    
-    # Check if process exists
-    if ! kill -0 "$PID" 2>/dev/null; then
-        return 1
-    fi
-    
-    # Check if socket exists (use -S for socket, not -f)
-    if [ ! -S "$SOCKET_FILE" ]; then
-        return 1
-    fi
-    
-    return 0
+    [ -f "$PID_FILE" ] || return 1
+    [ -S "$SOCKET_FILE" ] || return 1
+    local daemon_pid
+    daemon_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null
 }
 
-# Send command to daemon via socket
-send_to_daemon() {
-    local prompt="$1"
-    local yolo="$2"
-    
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/socket_XXXX.py")"
-    
-    cat > "$TMPSCRIPT" << PYEOF
-import sys
-import json
-import socket
-
-SOCKET_FILE = "$SOCKET_FILE"
-
-def send_command(cmd, data):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(30.0)
-    
-    try:
-        sock.connect(str(SOCKET_FILE))
-        request = {"cmd": cmd, "data": data}
-        sock.sendall(json.dumps(request).encode('utf-8'))
-        
-        response_data = b""
-        while True:
-            chunk = sock.recv(65536)
-            if not chunk:
-                break
-            response_data += chunk
-        
-        if not response_data:
-            print("[ERROR] No response from daemon", file=sys.stderr)
-            sys.exit(1)
-        
-        response = json.loads(response_data.decode('utf-8'))
-        
-        if response.get("status") == "error":
-            print(f"[ERROR] {response.get('message', 'Unknown error')}", file=sys.stderr)
-            sys.exit(1)
-        
-        return response
-    
-    except socket.timeout:
-        print("[ERROR] Connection timed out. Daemon may be busy.", file=sys.stderr)
-        sys.exit(1)
-    except socket.error as e:
-        print(f"[ERROR] Socket error: {e}", file=sys.stderr)
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"[ERROR] Invalid response from daemon: {e}", file=sys.stderr)
-        sys.exit(1)
-    finally:
-        try:
-            sock.close()
-        except:
-            pass
-
-# Send the prompt to daemon
-result = send_command("command", {"prompt": """$prompt""", "yolo": $yolo})
-print(json.dumps(result, indent=2))
-PYEOF
-    
-    python3 "$TMPSCRIPT"
-    rm -f "$TMPSCRIPT"
+daemon_cli() {
+    python3 "$KUZA_V2_DIR/core/daemon_cli.py" "$@"
 }
 
-# Check for daemon-specific commands
-if [ "$1" = "--daemon" ]; then
-    # Pass through to main.py with daemon flag
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/run_XXXX.py")"
-    
-    cat > "$TMPSCRIPT" << PYEOF
-import sys
-sys.path.insert(0, '$KUZA_V2_DIR')
-from main import main
-main()
-PYEOF
-    
-    python3 "$TMPSCRIPT" "\$@"
-    rm -f "$TMPSCRIPT"
-    exit $?
-fi
+case "${1:-}" in
+    --daemon)
+        python3 "$KUZA_V2_DIR/main.py" "$@"
+        exit $?
+        ;;
+    status)
+        daemon_cli status
+        exit $?
+        ;;
+    task)
+        shift
+        daemon_cli task "$@"
+        exit $?
+        ;;
+    cancel)
+        shift
+        daemon_cli cancel "$@"
+        exit $?
+        ;;
+esac
 
-# Check for status command
-if [ "$1" = "status" ]; then
-    if is_daemon_running; then
-        TMPSCRIPT="$(mktemp "$DAEMON_DIR/status_XXXX.py")"
-        
-        cat > "$TMPSCRIPT" << PYEOF
-import sys
-import json
-import socket
-
-SOCKET_FILE = "$SOCKET_FILE"
-
-def send_command(cmd, data):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(5.0)
-    
-    try:
-        sock.connect(str(SOCKET_FILE))
-        request = {"cmd": cmd, "data": data}
-        sock.sendall(json.dumps(request).encode('utf-8'))
-        
-        response_data = b""
-        while True:
-            chunk = sock.recv(65536)
-            if not chunk:
-                break
-            response_data += chunk
-        
-        if not response_data:
-            print("[ERROR] No response from daemon", file=sys.stderr)
-            sys.exit(1)
-        
-        response = json.loads(response_data.decode('utf-8'))
-        
-        if response.get("status") == "error":
-            print(f"[ERROR] {response.get('message', 'Unknown error')}", file=sys.stderr)
-            sys.exit(1)
-        
-        return response
-    
-    except socket.timeout:
-        print("[ERROR] Connection timed out", file=sys.stderr)
-        sys.exit(1)
-    except socket.error as e:
-        print(f"[ERROR] Socket error: {e}", file=sys.stderr)
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"[ERROR] Invalid response: {e}", file=sys.stderr)
-        sys.exit(1)
-    finally:
-        try:
-            sock.close()
-        except:
-            pass
-
-try:
-    # Get health and status
-    health = send_command("health", {})
-    
-    # Format output
-    print("Kuza-v2 Daemon Status")
-    print("=" * 40)
-    print(f"PID:            {health.get('pid', 'N/A')}")
-    print(f"Status:         Running")
-    print(f"Uptime:         {health.get('uptime_seconds', 0)} seconds")
-    print(f"Memory:         {health.get('memory_mb', 0)} MB")
-    print()
-    print("Task Queue:")
-    tasks = health.get('tasks', {})
-    print(f"  Pending:      {tasks.get('pending', 0)}")
-    stuck = tasks.get('stuck', [])
-    if stuck:
-        print(f"  Stuck:        {', '.join(map(str, stuck))}")
-    else:
-        print(f"  Stuck:        None")
-    print()
-    print(f"Recent Actions: {health.get('recent_actions', 0)} logged")
-    print()
-    print(f"State Database: $DAEMON_DIR/state.db")
-except SystemExit:
-    raise
-except Exception as e:
-    print(f"[ERROR] Failed to get status: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-        
-        python3 "$TMPSCRIPT"
-        EXIT_CODE=$?
-        rm -f "$TMPSCRIPT"
-        exit $EXIT_CODE
-    else
-        echo "Kuza-v2 daemon is not running"
-        echo "Use 'kuzad2 start' to start the daemon"
-        exit 1
-    fi
-fi
-
-
-# Check for task command
-if [ "$1" = "task" ]; then
-    if ! is_daemon_running; then
-        echo "Kuza-v2 daemon is not running"
-        exit 1
-    fi
-    
-    shift  # Remove 'task' from args
-    if [ $# -eq 0 ]; then
-        echo "Usage: kuza2 task <id>|list"
-        echo "  kuza2 task <id>   - Get task by ID"
-        echo "  kuza2 task list   - List recent tasks"
-        exit 1
-    fi
-    
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/task_XXXX.py")"
-    
-    if [ "$1" = "list" ]; then
-        cat > "$TMPSCRIPT" << PYEOF
-import sys
-import json
-import socket
-
-SOCKET_FILE = "$SOCKET_FILE"
-
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.settimeout(10.0)
-sock.connect(str(SOCKET_FILE))
-request = {"cmd": "task", "data": {"limit": 20}}
-sock.sendall(json.dumps(request).encode('utf-8'))
-
-response_data = b""
-while True:
-    chunk = sock.recv(65536)
-    if not chunk:
-        break
-    response_data += chunk
-sock.close()
-
-result = json.loads(response_data.decode('utf-8'))
-if result.get("status") == "ok":
-    print("Tasks:")
-    for t in result.get("tasks", []):
-        status_icon = {"done": "✓", "running": "⟳", "pending": "○", "failed": "✗"}.get(t["status"], "?")
-        desc = t["description"][:50].replace("\n", " ")
-        print(f"  [{t['id']}] {status_icon} {desc}")
-else:
-    print(f"Error: {result.get('message', 'Unknown error')}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-    else
-        TASK_ID="$1"
-        cat > "$TMPSCRIPT" << PYEOF
-import sys
-import json
-import socket
-
-SOCKET_FILE = "$SOCKET_FILE"
-
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.settimeout(10.0)
-sock.connect(str(SOCKET_FILE))
-request = {"cmd": "task", "data": {"id": $TASK_ID}}
-sock.sendall(json.dumps(request).encode('utf-8'))
-
-response_data = b""
-while True:
-    chunk = sock.recv(65536)
-    if not chunk:
-        break
-    response_data += chunk
-sock.close()
-
-result = json.loads(response_data.decode('utf-8'))
-if result.get("status") == "ok":
-    t = result.get("task", {})
-    status_icon = {"done": "✓", "running": "⟳", "pending": "○", "failed": "✗"}.get(t["status"], "?")
-    print(f"Task {t['id']}: {t['description']}")
-    print(f"Status: {status_icon} {t['status']}")
-    if t.get("result"):
-        print(f"Result: {t['result'][:200]}")
-    if t.get("created_at"):
-        import datetime
-        print(f"Created: {datetime.datetime.fromtimestamp(t['created_at'])}")
-    if t.get("completed_at"):
-        print(f"Completed: {datetime.datetime.fromtimestamp(t['completed_at'])}")
-else:
-    print(f"Error: {result.get('message', 'Unknown error')}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-    fi
-    
-    python3 "$TMPSCRIPT"
-    rm -f "$TMPSCRIPT"
-    exit $?
-fi
-
-# Check for cancel command
-if [ "$1" = "cancel" ]; then
-    if ! is_daemon_running; then
-        echo "Kuza-v2 daemon is not running"
-        exit 1
-    fi
-    
-    shift  # Remove 'cancel' from args
-    if [ $# -eq 0 ]; then
-        echo "Usage: kuza2 cancel <task_id>"
-        exit 1
-    fi
-    
-    TASK_ID="$1"
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/cancel_XXXX.py")"
-    
-    cat > "$TMPSCRIPT" << PYEOF
-import sys
-import json
-import socket
-
-SOCKET_FILE = "$SOCKET_FILE"
-
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.settimeout(10.0)
-sock.connect(str(SOCKET_FILE))
-request = {"cmd": "cancel", "data": {"id": $TASK_ID}}
-sock.sendall(json.dumps(request).encode('utf-8'))
-
-response_data = b""
-while True:
-    chunk = sock.recv(65536)
-    if not chunk:
-        break
-    response_data += chunk
-sock.close()
-
-result = json.loads(response_data.decode('utf-8'))
-if result.get("status") == "ok":
-    print(result.get("message", "Cancelled"))
-else:
-    print(f"Error: {result.get('message', 'Unknown error')}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-    
-    python3 "$TMPSCRIPT"
-    rm -f "$TMPSCRIPT"
-    exit $?
-fi
-
-# Detect --bg / --background flag to opt into daemon background queuing.
-# All other prompts always run interactively via direct Python (even when
-# the daemon is running) so the user gets a real-time streamed response.
-BG_MODE="false"
-for arg in "$@"; do
-    if [ "$arg" = "--bg" ] || [ "$arg" = "--background" ]; then
-        BG_MODE="true"
+background=false
+for argument in "$@"; do
+    if [ "$argument" = "--bg" ] || [ "$argument" = "--background" ]; then
+        background=true
         break
     fi
 done
 
-if [ "$BG_MODE" = "true" ]; then
-    # Background mode: queue task in the running daemon
+if $background; then
     if ! is_daemon_running; then
-        echo "Error: Daemon is not running. Start it with: kuzad2 start"
+        echo "Error: Daemon is not running. Start it with: kuzad2 start" >&2
         exit 1
     fi
-    YOLO="False"
-    PROMPT_PARTS=()
-    for arg in "$@"; do
-        if [ "$arg" = "--yolo" ]; then
-            YOLO="True"
-        elif [ "$arg" != "--bg" ] && [ "$arg" != "--background" ]; then
-            PROMPT_PARTS+=("$arg")
-        fi
+
+    yolo_args=()
+    prompt_parts=()
+    for argument in "$@"; do
+        case "$argument" in
+            --yolo) yolo_args=(--yolo) ;;
+            --bg|--background) ;;
+            *) prompt_parts+=("$argument") ;;
+        esac
     done
-    send_to_daemon "${PROMPT_PARTS[*]}" "$YOLO"
-else
-    # ── Start GUI server if not already running ────────────────────────────
+    if [ "${#prompt_parts[@]}" -eq 0 ]; then
+        echo "Usage: kuza2 --bg \"task description\"" >&2
+        exit 2
+    fi
+    prompt="${prompt_parts[*]}"
+    daemon_cli queue "--prompt=$prompt" "${yolo_args[@]}"
+    exit $?
+fi
+
+# The GUI costs meaningful RAM on a phone, so start it only when requested.
+GUI_STARTED_HERE=false
+if [ "${KUZA_AUTO_GUI:-0}" = "1" ] && [ -f "$KUZA_V2_DIR/gui/server.py" ]; then
     GUI_PORT="${KUZA_GUI_PORT:-8888}"
     GUI_PID_FILE="$DAEMON_DIR/gui-server.pid"
-    GUI_STARTED_HERE="false"
-
     if [ -f "$GUI_PID_FILE" ] && kill -0 "$(cat "$GUI_PID_FILE" 2>/dev/null)" 2>/dev/null; then
         echo "  GUI  →  http://localhost:${GUI_PORT}  (already running)"
-    elif [ -f "$KUZA_V2_DIR/gui/server.py" ]; then
+    else
         export PYTHONUNBUFFERED=1
         export KUZA_GUI_PORT="$GUI_PORT"
         python3 "$KUZA_V2_DIR/gui/server.py" &
         echo $! > "$GUI_PID_FILE"
-        GUI_STARTED_HERE="true"
+        GUI_STARTED_HERE=true
         echo "  GUI  →  http://localhost:${GUI_PORT}"
-    fi
-
-    # Kill GUI server on exit only if we started it this session
-    [ "$GUI_STARTED_HERE" = "true" ] && \
         trap 'kill "$(cat "$GUI_PID_FILE" 2>/dev/null)" 2>/dev/null; rm -f "$GUI_PID_FILE"' EXIT INT TERM
-
-    # Direct mode: always spawn Python interactively (foreground, streamed output).
-    # Daemon running or not — interactive prompts never go to the socket.
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/run_XXXX.py")"
-
-    cat > "$TMPSCRIPT" << PYEOF
-import sys
-sys.path.insert(0, '$KUZA_V2_DIR')
-from main import main
-main()
-PYEOF
-
-    python3 "$TMPSCRIPT" "$@"
-    rm -f "$TMPSCRIPT"
+    fi
 fi
+
+python3 "$KUZA_V2_DIR/main.py" "$@"
+exit_code=$?
+
+if $GUI_STARTED_HERE; then
+    : # EXIT trap performs cleanup.
+fi
+
+exit "$exit_code"

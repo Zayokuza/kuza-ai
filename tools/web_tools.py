@@ -4,7 +4,7 @@
 import ipaddress
 import json
 import socket
-from urllib.parse import parse_qs, quote_plus, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -20,6 +20,8 @@ HEADERS = {
 SEARCH_URL = "https://html.duckduckgo.com/html/"
 MAX_RESULTS = 10
 MAX_PAGE_CHARS = 12000
+MAX_RESPONSE_BYTES = 1_000_000
+MAX_REDIRECTS = 5
 
 
 def _safe_public_url(url: str) -> bool:
@@ -28,6 +30,10 @@ def _safe_public_url(url: str) -> bool:
         parsed = urlparse(url)
 
         if parsed.scheme not in {"http", "https"}:
+            return False
+        if parsed.username or parsed.password:
+            return False
+        if parsed.port is not None and parsed.port not in {80, 443}:
             return False
 
         hostname = parsed.hostname
@@ -51,6 +57,18 @@ def _safe_public_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _read_limited_bytes(response, max_bytes: int = MAX_RESPONSE_BYTES) -> bytes:
+    """Read a streamed response with a hard memory bound."""
+    body = bytearray()
+    for chunk in response.iter_content(chunk_size=16384):
+        if not chunk:
+            continue
+        body.extend(chunk)
+        if len(body) > max_bytes:
+            raise ValueError(f"response exceeds {max_bytes} byte limit")
+    return bytes(body)
 
 
 def _clean_ddg_url(url: str) -> str:
@@ -88,10 +106,15 @@ def web_search(query: str, limit: int = 5) -> str:
             params={"q": query},
             headers=HEADERS,
             timeout=20,
+            stream=True,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+            body = _read_limited_bytes(response)
+        finally:
+            response.close()
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(body.decode("utf-8", errors="replace"), "html.parser")
         results = []
 
         for result in soup.select(".result"):
@@ -144,23 +167,48 @@ def read_webpage(url: str, max_chars: int = MAX_PAGE_CHARS) -> str:
     except (TypeError, ValueError):
         max_chars = MAX_PAGE_CHARS
 
+    session = requests.Session()
+    response = None
     try:
-        response = requests.get(
-            url,
-            headers=HEADERS,
-            timeout=25,
-            allow_redirects=True,
-        )
-        response.raise_for_status()
+        current_url = url
+        for _ in range(MAX_REDIRECTS + 1):
+            # Validate every hop before connecting. requests' automatic redirect
+            # handling would otherwise contact a private target before Kuza got
+            # a chance to reject the final URL.
+            if not _safe_public_url(current_url):
+                return "[ERROR] Redirected to a non-public address"
 
+            response = session.get(
+                current_url,
+                headers=HEADERS,
+                timeout=25,
+                allow_redirects=False,
+                stream=True,
+            )
+
+            if response.status_code in {301, 302, 303, 307, 308}:
+                location = response.headers.get("location")
+                response.close()
+                response = None
+                if not location:
+                    return "[ERROR] Webpage redirect did not include a location"
+                current_url = urljoin(current_url, location)
+                continue
+            break
+        else:
+            return f"[ERROR] Webpage exceeded {MAX_REDIRECTS} redirects"
+
+        if response is None:
+            return "[ERROR] Webpage request returned no response"
+
+        response.raise_for_status()
         content_type = response.headers.get("content-type", "").lower()
-        if "text/html" not in content_type:
+        if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
             return f"[ERROR] Unsupported content type: {content_type}"
 
-        if not _safe_public_url(response.url):
-            return "[ERROR] Redirected to a non-public address"
-
-        soup = BeautifulSoup(response.text, "html.parser")
+        body = _read_limited_bytes(response)
+        encoding = response.encoding or "utf-8"
+        soup = BeautifulSoup(body.decode(encoding, errors="replace"), "html.parser")
 
         for tag in soup(
             [
@@ -198,7 +246,7 @@ def read_webpage(url: str, max_chars: int = MAX_PAGE_CHARS) -> str:
 
         return (
             f"Title: {title}\n"
-            f"Source: {response.url}\n\n"
+            f"Source: {current_url}\n\n"
             f"{cleaned}"
         ).strip()
 
@@ -206,3 +254,7 @@ def read_webpage(url: str, max_chars: int = MAX_PAGE_CHARS) -> str:
         return f"[ERROR] Webpage request failed: {exc}"
     except Exception as exc:
         return f"[ERROR] Webpage reading failed: {exc}"
+    finally:
+        if response is not None:
+            response.close()
+        session.close()

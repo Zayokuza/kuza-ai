@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 from core.sidecar.api import submit, result
 from core.sidecar.queue import SidecarQueue
 from core.sidecar.worker import SidecarWorker
@@ -31,9 +33,15 @@ class SidecarManager:
         return self.queue.pending()
 
 
-_manager = SidecarManager()
+_manager = None
+_manager_lock = threading.Lock()
 
 
 def get_sidecar():
     """Return the singleton sidecar manager."""
+    global _manager
+    if _manager is None:
+        with _manager_lock:
+            if _manager is None:
+                _manager = SidecarManager()
     return _manager

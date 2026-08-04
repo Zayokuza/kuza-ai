@@ -15,9 +15,10 @@
 #
 
 set -e
+umask 077
 
 KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DAEMON_DIR="$HOME/.kuza-v2"
+DAEMON_DIR="${KUZA_STATE_DIR:-$HOME/.kuza-v2}"
 
 # Main daemon files
 PID_FILE="$DAEMON_DIR/kuza-v2.pid"
@@ -29,6 +30,11 @@ PLANND_LOG_FILE="$DAEMON_DIR/plannd.log"
 
 # Ensure daemon directory exists
 mkdir -p "$DAEMON_DIR"
+chmod 700 "$DAEMON_DIR" 2>/dev/null || true
+
+daemon_cli() {
+    python3 "$KUZA_V2_DIR/core/daemon_cli.py" "$@"
+}
 
 # ── Status display ─────────────────────────────────────────────────────────────
 
@@ -54,73 +60,7 @@ show_status() {
         printf "Main daemon:    stopped\n"
     fi
 
-    # Check model server port and print model status via Python
-    python3 - <<PYEOF
-import sys, urllib.request
-sys.path.insert(0, "$KUZA_V2_DIR")
-
-def port_healthy(port):
-    try:
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/health", timeout=2
-        ) as r:
-            if r.status != 200:
-                return False
-            import json as _json
-            body = _json.loads(r.read().decode())
-            # llama-server sets status="loading model" while weights are loading
-            return body.get("status") == "ok"
-    except Exception:
-        return False
-
-try:
-    from utils.config import QWEN_7B_MMAP, QWEN_7B_MLOCK
-    mmap_str = "mmap: enabled" if QWEN_7B_MMAP else "mmap: disabled"
-except Exception:
-    mmap_str = "mmap: unknown"
-
-try:
-    from utils.config import (
-        KUZA_BACKEND as _cb, KUZA_PLANNER_BACKEND as _pb,
-        is_remote_backend as _is_remote,
-        is_remote_planner_backend as _is_remote_planner,
-    )
-except Exception:
-    _cb = "local"
-    _pb = "local"
-    _is_remote = lambda: False
-    _is_remote_planner = lambda: False
-
-try:
-    from utils.config import (
-        OPENROUTER_MODEL, OPENROUTER_PLANNER_MODEL,
-        UNLIMITEDCLAUDE_MODEL, UNLIMITEDCLAUDE_PLANNER_MODEL,
-    )
-except Exception:
-    OPENROUTER_MODEL = OPENROUTER_PLANNER_MODEL = "unknown"
-    UNLIMITEDCLAUDE_MODEL = UNLIMITEDCLAUDE_PLANNER_MODEL = "unknown"
-
-# Coder line
-if _is_remote():
-    _coder_m = UNLIMITEDCLAUDE_MODEL if _cb == "unlimitedclaude" else OPENROUTER_MODEL
-    print(f"7B model:       {_cb} ({_coder_m})")
-else:
-    if port_healthy(8080):
-        print(f"7B model:       loaded   ({mmap_str})")
-    else:
-        print("7B model:       not loaded")
-
-# Planner line
-if _is_remote_planner():
-    _planner_m = UNLIMITEDCLAUDE_PLANNER_MODEL if _pb == "unlimitedclaude" else OPENROUTER_PLANNER_MODEL
-    _planner_suffix = f" [{_pb}]" if _pb != _cb else ""
-    print(f"Planner:        {_pb} ({_planner_m}){_planner_suffix}")
-else:
-    if port_healthy(8081):
-        print("Planner:        0.5B local (port 8081)")
-    else:
-        print("Planner:        0.5B not loaded (port 8081)")
-PYEOF
+    daemon_cli models
 
     if $main_running; then
         return 0
@@ -152,24 +92,10 @@ start_daemon() {
     pkill -9 -f "llama-server.*8080" 2>/dev/null || true
     sleep 1
 
-    # Create launcher script
-    TMPSCRIPT="$(mktemp "$DAEMON_DIR/daemon_run_XXXX.py")"
-    trap 'rm -f "${TMPSCRIPT:-}"' ERR
-
-    cat > "$TMPSCRIPT" << PYEOF
-import sys
-import os
-
-KUZA_V2_DIR = "$KUZA_V2_DIR"
-sys.path.insert(0, KUZA_V2_DIR)
-os.environ.setdefault("KUZA_DIR", KUZA_V2_DIR)
-
-from core.daemon import main
-main()
-PYEOF
-
     # Start daemon in background, redirect output to log
-    nohup python3 "$TMPSCRIPT" > "$LOG_FILE" 2>&1 &
+    PYTHONPATH="$KUZA_V2_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+        KUZA_DIR="${KUZA_DIR:-$KUZA_V2_DIR}" \
+        nohup python3 -m core.daemon > "$LOG_FILE" 2>&1 &
     DAEMON_PID=$!
 
     sleep 1
@@ -179,12 +105,8 @@ PYEOF
         echo "Log: $LOG_FILE"
     else
         echo "ERROR: Main daemon failed to start. Check: $LOG_FILE"
-        rm -f "$TMPSCRIPT"
         return 1
     fi
-
-    # Cleanup temp script after a delay
-    (sleep 5 && rm -f "$TMPSCRIPT") &
 }
 
 stop_daemon() {
@@ -250,12 +172,7 @@ start_plannd() {
     sleep 0.5
 
     # Resolve model path and llama-server binary from config
-    PLANNER_MODEL=$(python3 -c "
-import sys; sys.path.insert(0, '$KUZA_V2_DIR')
-from utils.config import PLANNER_MODEL_PATH, LLAMA_SERVER_BIN
-print(PLANNER_MODEL_PATH)
-print(LLAMA_SERVER_BIN)
-" 2>/dev/null)
+    PLANNER_MODEL="$(daemon_cli planner-paths 2>/dev/null)"
 
     MODEL_FILE=$(echo "$PLANNER_MODEL" | head -1)
     LLAMA_BIN=$(echo "$PLANNER_MODEL" | tail -1)
@@ -382,18 +299,7 @@ case "${1:-status}" in
         reload_daemon
         ;;
     config)
-        TMPSCRIPT="$(mktemp "$DAEMON_DIR/config_XXXX.py")"
-
-        cat > "$TMPSCRIPT" << PYEOF
-import sys
-sys.path.insert(0, '$KUZA_V2_DIR')
-from core.daemon_config import create_default_config
-path = create_default_config()
-print(f"Default config created at: {path}")
-PYEOF
-
-        python3 "$TMPSCRIPT" || { rm -f "$TMPSCRIPT"; exit 1; }
-        rm -f "$TMPSCRIPT"
+        daemon_cli config
         ;;
     *)
         echo "Usage: kuzad2 {start|stop|status|restart|reload|config}"

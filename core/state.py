@@ -16,14 +16,12 @@ from pathlib import Path
 from typing import Optional, Any, List, Dict
 from threading import Lock
 
-from utils.config import KUZA_DIR
+from utils.config import KUZA_STATE_DIR
+from utils.redaction import redact_sensitive
 
 # State directory and database path (Kuza-v2 specific)
-STATE_DIR = Path.home() / ".kuza-v2"
+STATE_DIR = KUZA_STATE_DIR
 STATE_DB = STATE_DIR / "state.db"
-
-# Ensure state directory exists
-STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class StateStore:
@@ -36,7 +34,12 @@ class StateStore:
     """
 
     def __init__(self, db_path: Path = STATE_DB):
-        self.db_path = db_path
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.db_path.parent.chmod(0o700)
+        except OSError:
+            pass
         self._lock = Lock()
         self._conn: sqlite3.Connection = sqlite3.connect(
             str(self.db_path),
@@ -44,6 +47,10 @@ class StateStore:
             check_same_thread=False,
         )
         self._conn.row_factory = sqlite3.Row
+        try:
+            self.db_path.chmod(0o600)
+        except OSError:
+            pass
         # Enable WAL mode for better concurrent read performance
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._init_schema()
@@ -321,10 +328,12 @@ class StateStore:
 
     def log_action(self, action: str, details: str = None):
         """Log an action to the episodic log."""
+        safe_action = redact_sensitive(str(action))
+        safe_details = redact_sensitive(str(details)) if details is not None else None
         with self._lock:
             self._conn.execute(
                 "INSERT INTO episodic_log (timestamp, action, details) VALUES (?, ?, ?)",
-                (int(time.time()), action, details),
+                (int(time.time()), safe_action, safe_details),
             )
             self._conn.commit()
 

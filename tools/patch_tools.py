@@ -5,18 +5,23 @@ Much more efficient than write_file for small edits.
 from pathlib import Path
 from utils.logger import confirm as ask_confirm, warning, success
 from utils.config import AGENT_CONFIG
-from core.filehistory import snapshot
 
 def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
     """
     Replace first occurrence of old_str with new_str in file.
     Snapshots before patching for /undo support.
     """
-    p = Path(path).expanduser()
-    if not p.exists():
-        # Try relative to cwd
-        import os
-        p = Path(os.getcwd()) / path
+    # Validate the path before checking existence or reading content. This
+    # prevents failed patches from becoming an out-of-workspace read primitive.
+    from core.filesystem import get_filesystem, FilesystemAccessError
+    fs = get_filesystem(
+        allow_self_modification=AGENT_CONFIG.get("allow_self_modification", False)
+    )
+    try:
+        p = fs.validate_path(path)
+    except FilesystemAccessError as e:
+        return f"[ERROR] {e}"
+
     if not p.exists():
         return f"[ERROR] File not found: {path}"
 
@@ -27,16 +32,11 @@ def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
 
     count = content.count(old_str)
     if count == 0:
-        # old_str not found — model's context may be stale.  Return the current
-        # file content so the model can reconstruct the correct patch or fall back
-        # to write_file with the full intended content instead of retrying blindly.
         lines = content.splitlines()
         return (
             f"[ERROR] String not found. [PATCH_FAILED] old_str not found in {path} ({len(lines)} lines).\n"
             "The file may have changed since you last read it. "
-            "Use write_file with the complete intended content, or re-read the file "
-            "and issue a corrected patch.\n"
-            f"Current file content:\n{content}"
+            "Use read_file, then issue a corrected patch."
         )
     
     if count > 1:
@@ -74,11 +74,10 @@ def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
         except Exception:
             pass  # linter unavailable — allow patch
 
-    snapshot(str(p))
     try:
-        # Route through Filesystem layer for workspace boundary and safety enforcement
-        from core.filesystem import get_filesystem, FilesystemAccessError
-        get_filesystem().write(str(p), new_content)
+        # Route through the same validated Filesystem instance so self-mod
+        # configuration and checkpoint behavior cannot depend on import order.
+        fs.write(str(p), new_content)
         return f"Patched {path} ({len(old_str)} chars → {len(new_str)} chars)"
     except FilesystemAccessError as e:
         return f"[ERROR] {e}"

@@ -32,7 +32,8 @@ def get_plan(prompt: str, no_plan: bool = False, project_context: str = ""):
     Returns:
         list[str] of step descriptions, or None.
     """
-    if no_plan:
+    from core.plannd import should_plan
+    if no_plan or not should_plan(prompt):
         return None
 
     # ── Attempt 1: daemon planner ─────────────────────────────────────────────
@@ -58,6 +59,10 @@ def _request_daemon_plan(prompt: str):
     Returns None on any failure or when the daemon is not running.
     """
     try:
+        from core.plannd import should_plan, validate_plan
+        if not should_plan(prompt):
+            return None
+
         from core.daemon import is_daemon_running, send_command
         if not is_daemon_running():
             return None
@@ -74,12 +79,13 @@ def _request_daemon_plan(prompt: str):
         except Exception:
             info("Requesting plan from planner...")
 
+        from utils.config import PLANNER_TIMEOUT_SECONDS
         response = send_command(
             "command",
             {"prompt": prompt, "no_plan": False, "plan_only": True},
-            timeout=185,
+            timeout=PLANNER_TIMEOUT_SECONDS + 5,
         )
-        plan = response.get("plan")
+        plan = validate_plan(prompt, response.get("plan") or [])
         if plan and isinstance(plan, list) and len(plan) > 1:
             return plan
         if not plan:

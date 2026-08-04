@@ -11,7 +11,7 @@ from core.memory_v2 import memory as _mem
 
 _DEFAULT_IGNORE = frozenset({
     ".env", "*.pem", "*.key", ".git", "__pycache__",
-    ".pytest_cache", ".kuza_sessions", "node_modules", ".venv"
+    ".pytest_cache", ".kuza_sessions", ".kuza-v2", "node_modules", ".venv"
 })
 
 # Cache: { cwd_str: (mtime_or_None, frozenset_of_patterns) }

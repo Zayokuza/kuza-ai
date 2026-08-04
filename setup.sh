@@ -35,7 +35,8 @@ fi
 source "$SHELL_CONFIG"
 
 # Create daemon directory
-mkdir -p "$HOME/.kuza-v2"
+mkdir -p "${KUZA_STATE_DIR:-$HOME/.kuza-v2}"
+chmod 700 "${KUZA_STATE_DIR:-$HOME/.kuza-v2}" 2>/dev/null || true
 
 echo ""
 echo "Setup complete!"

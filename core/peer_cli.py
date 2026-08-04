@@ -35,7 +35,7 @@ class PeerCLI:
     interactive: bool = True   # True = open full interactive session
     prompt_flag: str = ""      # flag for non-interactive prompt injection
     prompt_prefix: str = ""    # prefix before the prompt string
-    use_pty: bool = True       # False = run via os.system (avoids nested PTY issues)
+    use_pty: bool = True       # False = run as a direct argv process
     yolo_flag: str = ""        # appended after the prompt to skip tool confirmations
                                # e.g. "-y" for qwen so it can auto-approve its own tools
 

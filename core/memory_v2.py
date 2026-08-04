@@ -311,11 +311,14 @@ class LongTermMemory:
         self._store = None
         self._model = None
         self._available = False
+        self._initialized = False
         self._init_error: Optional[str] = None
-        self._try_init()
 
     def _try_init(self):
         """Lazy-initialize the embedding backend. Silently skip if unavailable."""
+        if self._initialized:
+            return
+        self._initialized = True
         try:
             from core.embeddings import get_embedding_model, get_embedding_store
             self._store = get_embedding_store()
@@ -326,6 +329,7 @@ class LongTermMemory:
             # Long-term memory is optional — don't crash the agent if unavailable
 
     def store_file(self, file_path: str, content: str) -> int:
+        self._try_init()
         if not self._available:
             return 0
         try:
@@ -344,6 +348,7 @@ class LongTermMemory:
         return 0
 
     def search(self, query: str, limit: int = 5) -> List[Dict]:
+        self._try_init()
         if not self._available:
             return []
         try:
@@ -355,6 +360,7 @@ class LongTermMemory:
             return []
 
     def remove_file(self, file_path: str) -> int:
+        self._try_init()
         if not self._available:
             return 0
         try:
@@ -363,6 +369,7 @@ class LongTermMemory:
             return 0
 
     def count(self) -> int:
+        self._try_init()
         if not self._available:
             return 0
         try:
@@ -390,31 +397,41 @@ class EpisodicMemory:
     """
 
     def __init__(self):
-        try:
-            from core.state import get_state_store
-            self._state = get_state_store()
-        except Exception:
-            self._state = None
+        self._state = None
+        self._initialized = False
+
+    def _get_state(self):
+        if not self._initialized:
+            self._initialized = True
+            try:
+                from core.state import get_state_store
+                self._state = get_state_store()
+            except Exception:
+                self._state = None
+        return self._state
 
     def log(self, action: str, details: str = None):
-        if self._state and hasattr(self._state, 'log_action'):
+        state = self._get_state()
+        if state and hasattr(state, 'log_action'):
             try:
-                self._state.log_action(action, details)
+                state.log_action(action, details)
             except Exception:
                 pass
 
     def get_recent(self, limit: int = 50) -> List[Dict]:
-        if self._state and hasattr(self._state, 'get_recent_actions'):
+        state = self._get_state()
+        if state and hasattr(state, 'get_recent_actions'):
             try:
-                return self._state.get_recent_actions(limit)
+                return state.get_recent_actions(limit)
             except Exception:
                 pass
         return []
 
     def get_since(self, timestamp: int) -> List[Dict]:
-        if self._state and hasattr(self._state, 'get_actions_since'):
+        state = self._get_state()
+        if state and hasattr(state, 'get_actions_since'):
             try:
-                return self._state.get_actions_since(timestamp)
+                return state.get_actions_since(timestamp)
             except Exception:
                 pass
         return []

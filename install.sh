@@ -109,19 +109,9 @@ install_python_deps() {
 
     cd "$KUZA_V2_DIR"
 
-    # Install only what's needed for the core agent + GUI
-    # (pipeline/training deps are optional — see requirements.txt for full list)
-    pip3 install \
-        "rich>=14.0.0" \
-        "numpy>=1.24.0" \
-        "watchdog>=3.0.0" \
-        "aiohttp>=3.9.0" \
-        "requests>=2.31.0" \
-        "httpx>=0.27.0" \
-        "pyyaml>=6.0" \
-        "filelock>=3.13.0" \
-        "tqdm>=4.65.0" \
-        "hnswlib>=0.7.0" \
+    # Install the tested core runtime. Heavy training dependencies are kept in
+    # requirements-pipeline.txt so a normal phone install stays reliable.
+    pip3 install -r "$KUZA_V2_DIR/requirements.txt" \
         || print_warning "Some pip packages failed — Kuza-v2 may still work"
 
     print_success "Core Python packages installed"
@@ -132,7 +122,7 @@ install_python_deps() {
         read -p "  Install pipeline/training extras? (large download, optional) [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            pip3 install -r "$KUZA_V2_DIR/requirements.txt" \
+            pip3 install -r "$KUZA_V2_DIR/requirements-pipeline.txt" \
                 || print_warning "Some pipeline packages may have failed (normal on Termux)"
         fi
     fi
@@ -277,8 +267,10 @@ make_executable() {
 }
 
 setup_daemon_dir() {
-    mkdir -p "$HOME/.kuza-v2"
-    print_success "Daemon directory: $HOME/.kuza-v2"
+    KUZA_RUNTIME_DIR="${KUZA_STATE_DIR:-$HOME/.kuza-v2}"
+    mkdir -p "$KUZA_RUNTIME_DIR"
+    chmod 700 "$KUZA_RUNTIME_DIR" 2>/dev/null || true
+    print_success "Daemon directory: $KUZA_RUNTIME_DIR"
 }
 
 setup_path() {

@@ -106,7 +106,7 @@ This table covers exactly what Kuza saves, where it lives, and how long it lasts
 
 | What | Where | Survives restart? | Expires? | How to clear |
 |------|-------|------------------|----------|--------------|
-| Last 6 turns of conversation | `~/.kuza_sessions/<project-hash>.json` | Yes | After 2 hours of inactivity | `/clear` in-chat or `kuza2 --clear-session` |
+| Last 6 turns of conversation | `~/.kuza-v2/sessions/<project-hash>.json` | Yes | After 2 hours of inactivity | `/clear` in-chat or `kuza2 --clear-session` |
 | Project memory (`KUZA.md`) | `<project>/KUZA.md` | Yes | Never | Edit or delete the file manually |
 | Action log (every tool call) | `~/.kuza-v2/state.db` | Yes | Never (append-only) | Delete `~/.kuza-v2/state.db` |
 | Open files / working context | In-memory only | No | On exit | — |

@@ -44,12 +44,42 @@ from core.thermal import start_inference, end_inference
 # because the agent already has full filesystem access; the allowlist mainly
 # prevents accidental destructive shell commands (rm, curl, chmod, etc.).
 # ---------------------------------------------------------------------------
-_DAEMON_ALLOWED_PREFIXES = (
-    "python", "python3", "pip", "pip3",
-    "pytest", "ls", "cat", "echo", "grep", "find",
-    "git status", "git log", "git diff", "git show",
-    "cd ", "pwd", "which", "env", "printenv",
-)
+_DAEMON_ALLOWED_COMMANDS = {
+    "python", "python3", "pytest", "ls", "cat", "echo", "grep", "find",
+    "pwd", "which", "printenv",
+}
+_DAEMON_GIT_SUBCOMMANDS = {"status", "log", "diff", "show"}
+
+
+def _daemon_command_allowed(command: str) -> bool:
+    """Return whether a simple daemon command is in the narrow allowlist."""
+    import shlex
+    from pathlib import Path
+    from tools.shell_tools import validate_command_structure
+
+    valid, _ = validate_command_structure(command)
+    if not valid:
+        return False
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    if not argv:
+        return False
+
+    executable = Path(argv[0]).name
+    if executable == "git":
+        return len(argv) >= 2 and argv[1] in _DAEMON_GIT_SUBCOMMANDS
+    if executable not in _DAEMON_ALLOWED_COMMANDS:
+        return False
+
+    if executable == "find" and any(
+        flag in argv for flag in ("-delete", "-exec", "-execdir", "-ok", "-okdir")
+    ):
+        return False
+    if executable in {"python", "python3"} and "-c" in argv:
+        return False
+    return True
 
 
 class TaskExecutor:
@@ -142,15 +172,19 @@ class TaskExecutor:
         Anything else is blocked with a clear message so the model knows
         to restructure its approach rather than silently failing.
         """
-        from tools.shell_tools import shell
+        from tools.shell_tools import shell, validate_command_structure
 
         cmd = command.strip()
-        if not any(cmd.startswith(p) for p in _DAEMON_ALLOWED_PREFIXES):
+        valid, reason = validate_command_structure(cmd)
+        if not valid:
+            warning(f"Daemon: blocked compound shell command: {cmd[:80]}")
+            return f"[BLOCKED] Daemon shell requires a simple command: {reason}"
+        if not _daemon_command_allowed(cmd):
             warning(f"Daemon: blocked shell command: {cmd[:80]}")
             return (
                 f"[BLOCKED] Daemon mode will not run '{cmd[:60]}' without "
-                "explicit authorization. Add the command prefix to "
-                "_DAEMON_ALLOWED_PREFIXES in core/task_executor.py to enable it."
+                "explicit authorization. Add the exact command policy to "
+                "core/task_executor.py to enable it."
             )
         return shell(command, yolo=True)
 

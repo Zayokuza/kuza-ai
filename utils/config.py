@@ -3,6 +3,9 @@ import shutil
 from pathlib import Path
 
 KUZA_DIR = Path(os.environ.get("KUZA_DIR", Path.home() / "kuza-v2"))
+KUZA_STATE_DIR = Path(
+    os.environ.get("KUZA_STATE_DIR", Path.home() / ".kuza-v2")
+).expanduser()
 MODEL_PATH = Path(os.environ.get(
     "KUZA_MODEL",
     Path.home() / "models" / "qwen2.5-coder-7b" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
@@ -24,7 +27,9 @@ LLAMA_SERVER_BIN = os.environ.get("KUZA_LLAMA_SERVER") or shutil.which("llama-se
 LLAMA_LIB = os.environ.get("KUZA_LLAMA_LIB") or str(_HOME_LLAMA)
 
 MODEL_CONFIG = {
-    "n_ctx":          32768,
+    # 16K substantially reduces KV-cache pressure on a phone. Override with
+    # KUZA_CTX or main.py --ctx when a task genuinely needs more context.
+    "n_ctx":          max(4096, min(32768, int(os.environ.get("KUZA_CTX", "16384")))),
     "n_threads":      4,
     "n_gpu_layers":   0,
     "verbose":        False,
@@ -77,14 +82,11 @@ WORKSPACE_ROOT = Path(os.getcwd()).resolve()
 # Controls the draft → critique → refine self-improvement loop.
 # KUZA_RECURSIVE=1  — force on   (even for remote backends)
 # KUZA_RECURSIVE=0  — force off  (single-pass inference)
-# unset              — auto: on for local, off for remote (remote models need fewer retries)
+# unset              — off (one generation per step; best default for phones)
 _recursive_env     = os.environ.get("KUZA_RECURSIVE", "").strip()
-_recursive_backend = os.environ.get("KUZA_BACKEND", "local").lower()
-_recursive_default = _recursive_backend not in ("openrouter", "unlimitedclaude")
 _recursive_enabled = (
     True  if _recursive_env == "1" else
-    False if _recursive_env == "0" else
-    _recursive_default
+    False
 )
 RECURSIVE_CONFIG = {
     "enabled":            _recursive_enabled,
@@ -96,7 +98,7 @@ RECURSIVE_CONFIG = {
     # Apply recursion for file-write tasks (write_file / patch_file)
     "recursive_for_writes": True,
     # Apply recursion during task planning (orchestrator)
-    "recursive_for_plans":  True,
+    "recursive_for_plans":  False,
     # Skip recursion for Q&A / conversational messages (always skipped via breadth=minimal)
     "recursive_for_qa":     False,
     # Max tokens allocated to the critique response (keeps critique calls fast)
@@ -189,6 +191,11 @@ QWEN_7B_MMAP  = os.environ.get("KUZA_7B_MMAP",  "1") != "0"   # default: True
 QWEN_7B_MLOCK = os.environ.get("KUZA_7B_MLOCK", "0") != "0"   # default: False
 
 # ── Planner settings ─────────────────────────────────────────────────────────
-# Temperature 0.2 keeps plans focused; 768 gives room for 5 detailed steps.
+# Keep local plans short: the planner emits at most eight one-line steps, and
+# long generations multiply latency on a phone.
 PLANNER_TEMPERATURE  = 0.2
-PLANNER_MAX_TOKENS   = 1024
+PLANNER_MAX_TOKENS   = int(os.environ.get("KUZA_PLANNER_MAX_TOKENS", "320"))
+PLANNER_TIMEOUT_SECONDS = max(
+    5,
+    min(120, int(os.environ.get("KUZA_PLANNER_TIMEOUT", "45"))),
+)

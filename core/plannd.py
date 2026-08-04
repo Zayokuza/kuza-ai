@@ -22,69 +22,92 @@ from typing import Optional, List
 # Test and tune this prompt against remote models (faster iteration), then
 # the same prompt runs on local — results are directly comparable.
 
-PLANNER_PROMPT = (
-    "You are a task planner. Write a numbered list of 2 to 8 steps.\n"
-    "Your plan is executed AS-IS by a code agent. Every filename and path in your plan\n"
-    "will be used exactly as you write it. Do not abbreviate, paraphrase, or assume.\n\n"
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    "CRITICAL RULE: FILENAMES AND PATHS\n"
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    "• EXTRACT the exact filenames from the user's message FIRST. Highlight them mentally.\n"
-    "• COPY them AS-IS into your plan. Do not abbreviate, shorten, or 'clean up' names.\n"
-    "• EVERY mention of a filename in your plan must be identical to the user's original.\n"
-    "• Use the SAME filename consistently across ALL steps (Create, Run, Verify).\n"
-    "• Do NOT invent subdirectory paths (e.g. do NOT write 'data/results.py' unless the\n"
-    "  user explicitly said 'data/results.py'). Files go in the current working directory.\n\n"
-    "VIOLATIONS (these are WRONG):\n"
-    "  ✗ User says 'fibonacci.py' → you write 'fib.py' (abbreviation)\n"
-    "  ✗ User says 'fibonacci.py' → you write 'fibonacci.py' in step 1 but 'fib.py' in step 2\n"
-    "  ✗ User says 'fibonacci.py' → you write 'src/fibonacci.py' (invented path)\n"
-    "  ✗ User says 'results.json' → you write 'out.json' (different name)\n\n"
-    "CORRECT PATTERN:\n"
-    "  User says: 'Create fibonacci.py that prints 20 Fibonacci numbers, then run it'\n"
-    "  You write:\n"
-    "    1. Create fibonacci.py: accepts n, prints each Fibonacci number on its own line\n"
-    "    2. Run: python fibonacci.py 20\n"
-    "  ✓ Both steps use 'fibonacci.py' — identical, no abbreviation, no extra paths.\n\n"
-    "STEP TEMPLATES:\n"
-    "  Create <file>: accepts <input>, <feature1>, <feature2>, ..., prints <format>\n"
-    "  Run: python <exact filename from user> <exact value from user>\n"
-    "  Run: pytest <file>\n"
-    "  Verify: <expected outcome>\n\n"
-    "RULES:\n"
-    "1. Create step: use the format above. List every feature after the colon, "
-    "comma-separated. Read the full user message. Include ALL of: input args, processing, "
-    "file saves, timestamps, print format. Keep adding features until complete.\n"
-    "2. Run: copy the exact filename and argument from the user's message word for word. "
-    "One Run step per execution. Use the SAME filename as in the Create step.\n"
-    "3. Verify: describes what should be true — never a command.\n"
-    "4. No two steps repeat the same action. EXCEPTION: if the user explicitly asks to run "
-    "something multiple times, include a Run step for each run.\n"
-    "5. Use 'pytest' for test files, not 'python'.\n"
-    "6. No code, no markdown, no extra text. Plain English step descriptions only.\n"
-    "7. Never invent capabilities. Only describe what the user explicitly stated.\n"
-    "8. Peer CLI steps: if the user says 'ask claude to X', 'have gemini do X', 'use qwen to X', "
-    "etc., copy that instruction EXACTLY as: 'Ask claude to X'. Never rephrase.\n\n"
-    "EXAMPLE — user says:\n"
-    "'Create a Python script called fibonacci.py that generates the first 20 fibonacci "
-    "numbers and prints them one per line then runs it to show the output'\n\n"
-    "Your plan:\n"
-    "1. Create fibonacci.py: accepts n, prints each Fibonacci number on its own line\n"
-    "2. Run: python fibonacci.py 20\n\n"
-    "NOTE: User said 'fibonacci.py', so you MUST use 'fibonacci.py' in both steps.\n"
-    "Do NOT write 'fib.py', 'fib', 'fibonacci', or any other variation.\n\n"
-    "ANOTHER EXAMPLE — user says:\n"
-    "'Create xform.py that accepts a corpus.txt path, counts tokens/lines, appends each result "
-    "with a timestamp to tally.json, prints a clean summary; run on corpus.txt twice, "
-    "verify tally.json has 2 entries'\n\n"
-    "Your plan:\n"
-    "1. Create xform.py: accepts a path, counts tokens and lines, "
-    "appends result with timestamp to tally.json, prints a clean summary\n"
-    "2. Run: python xform.py corpus.txt\n"
-    "3. Run: python xform.py corpus.txt\n"
-    "4. Verify: tally.json contains exactly 2 entries with timestamps\n\n"
-    "NOTE: User said 'xform.py', 'corpus.txt', 'tally.json'. Plan uses these exact names."
+PLANNER_PROMPT = """You plan multi-step software work for a coding agent.
+
+Return either NO_PLAN or a numbered list containing 2 to 8 short, executable steps.
+
+Rules:
+- Return NO_PLAN for questions, conversation, searches, account lookups, research-only
+  requests, or work that needs only one direct action.
+- Plan only actions required by the user's exact software request.
+- Copy every filename, path, command, argument, quantity, and peer name exactly.
+- Never invent, abbreviate, rename, or relocate a filename supplied by the user.
+- Never repeat a step unless the user explicitly requests repeated execution.
+- Use concrete verbs such as Inspect, Create, Update, Run, Test, or Verify.
+- A verification step must state a real check or command, not an assumption.
+- Do not add Git operations unless the user explicitly requested them.
+- Do not output code, markdown, explanations, examples, or introductory text.
+"""
+
+
+MAX_PLAN_STEPS = 8
+
+_FILE_RE = re.compile(
+    r"(?<![\w.-])((?:[\w.-]+/)*[\w.-]+\."
+    r"(?:py|js|ts|jsx|tsx|html|css|json|yaml|yml|toml|txt|md|sh|sql))\b",
+    re.IGNORECASE,
 )
+_SOFTWARE_ACTION_RE = re.compile(
+    r"\b(?:create|write|build|implement|refactor|rewrite|edit|fix|patch|add|"
+    r"update|delete|remove|install|configure|setup|deploy|run|execute|tests?|"
+    r"debug|migrate)\b",
+    re.IGNORECASE,
+)
+_SOFTWARE_NOUN_RE = re.compile(
+    r"\b(?:code|file|script|program|module|function|class|app|application|api|"
+    r"website|server|database|repository|repo|project|tests?|bug|feature|endpoint|"
+    r"cli|package|dependency|config|python|javascript|typescript|shell|git)\b",
+    re.IGNORECASE,
+)
+_QUESTION_RE = re.compile(
+    r"^\s*(?:what|why|how|when|where|who|which|is|are|do|does|can|could|would|"
+    r"should|will|was|were|has|have)\b",
+    re.IGNORECASE,
+)
+_MULTI_STEP_RE = re.compile(
+    r"(?:\bthen\b|\bafter(?:\s+that)?\b|\balso\b|\bfinally\b|\bnext\b|"
+    r"\band\s+(?:run|execute|test|verify|create|write|add|update|fix|commit|push)\b|"
+    r"(?:^|\n)\s*\d+[.)])",
+    re.IGNORECASE,
+)
+_REPEAT_RE = re.compile(
+    r"\b(?:again|twice|three\s+times|\d+\s+times|multiple\s+times|each)\b",
+    re.IGNORECASE,
+)
+
+
+def should_plan(prompt: str) -> bool:
+    """Return whether *prompt* is genuinely multi-step software work."""
+    if not isinstance(prompt, str):
+        return False
+    text = prompt.strip()
+    if not text or "@" in text and not _SOFTWARE_ACTION_RE.search(text):
+        return False
+    if _QUESTION_RE.match(text) or re.search(
+        r"\b(?:explain|tell me about|help me understand|what(?:'s| is) the difference)\b",
+        text,
+        re.IGNORECASE,
+    ):
+        return False
+
+    actions = {match.group(0).lower() for match in _SOFTWARE_ACTION_RE.finditer(text)}
+    has_software_subject = bool(_SOFTWARE_NOUN_RE.search(text) or _FILE_RE.search(text))
+    if not actions or not has_software_subject:
+        return False
+
+    if _MULTI_STEP_RE.search(text) or len(_FILE_RE.findall(text)) >= 2:
+        return True
+    if len(actions) >= 2:
+        return True
+
+    # A single architectural action can still need planning when it has several
+    # requirements, while short one-file edits should execute directly.
+    requirement_markers = len(re.findall(
+        r"\b(?:with|including|that|for|using|supporting|across)\b",
+        text,
+        re.IGNORECASE,
+    ))
+    return len(text) >= 80 and requirement_markers >= 2
 
 
 # ── Step parser ───────────────────────────────────────────────────────────────
@@ -97,6 +120,8 @@ def parse_steps(raw: str) -> List[str]:
     then collects lines matching "N. step" or "N) step".
     """
     text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    if text.upper().startswith("NO_PLAN"):
+        return []
 
     steps: List[str] = []
     for line in text.splitlines():
@@ -119,10 +144,16 @@ def parse_steps(raw: str) -> List[str]:
 # ── Tool-call step filter ─────────────────────────────────────────────────────
 
 _TOOL_VERBS = re.compile(
-    r"^(create|write|build|add|run|execute|install|verify|check|test|confirm|update|delete|remove"
-    r"|ask|have|use|tell|call|let|get|initialize|init|commit|push)\b",
+    r"^(inspect|read|research|create|write|build|add|run|execute|install|verify|check|"
+    r"test|confirm|update|edit|fix|patch|delete|remove|ask|have|use|tell|call|let|get|"
+    r"initialize|init|commit|push)\b",
     re.IGNORECASE,
 )
+_MUTATION_STEP_RE = re.compile(
+    r"^(?:create|write|build|add|update|edit|fix|patch|delete|remove)\b",
+    re.IGNORECASE,
+)
+_RUN_STEP_RE = re.compile(r"^(?:run|execute)\b", re.IGNORECASE)
 
 # Peer CLI names — steps mentioning these are always kept regardless of verb
 _PEER_NAME_RE = re.compile(r'\b(claude|gemini|qwen)\b', re.IGNORECASE)
@@ -133,23 +164,83 @@ def filter_tool_steps(steps: List[str]) -> List[str]:
     command, verify output).  Drops implementation-detail steps the 0.5B
     model sometimes emits (e.g. "Count lines using os.linesep").
 
-    Rules:
-    - Step 1 is always kept (create/write the file — enriched with full prompt).
-    - Subsequent steps are kept if they start with a recognised action verb,
-      contain 'Run:' / 'Verify' / 'Check', or mention a peer CLI by name
-      (claude/gemini/qwen — these are delegation steps and must be preserved).
+    Every retained step must begin with a recognised action or explicitly name
+    a peer CLI. No step receives special treatment based on its position.
     """
     if not steps:
-        return steps
-    kept = [steps[0]]
-    for step in steps[1:]:
+        return []
+    kept = []
+    for step in steps:
         if (
             _TOOL_VERBS.match(step)
             or re.search(r"\bRun:|Verify|Check\b", step, re.IGNORECASE)
             or _PEER_NAME_RE.search(step)
         ):
             kept.append(step)
-    return kept if len(kept) > 1 else steps[:2]  # fallback: keep first two
+    return kept
+
+
+def validate_plan(prompt: str, steps: List[str]) -> List[str]:
+    """Ground, deduplicate, and cap a model-generated plan."""
+    if not should_plan(prompt) or not isinstance(steps, list):
+        return []
+
+    candidates = filter_tool_steps([
+        re.sub(r"\s+", " ", str(step)).strip()
+        for step in steps
+        if str(step).strip()
+    ])
+    if len(candidates) < 2:
+        return []
+
+    prompt_files = set(_FILE_RE.findall(prompt))
+    plan_files = {
+        filename
+        for step in candidates
+        for filename in _FILE_RE.findall(step)
+    }
+    if prompt_files:
+        # When the user supplies filenames, they are authoritative. Falling
+        # back to direct execution is safer than executing a renamed/invented
+        # planner path.
+        if plan_files - prompt_files or not prompt_files.issubset(plan_files):
+            return []
+
+    allow_repeat = bool(_REPEAT_RE.search(prompt))
+    result = []
+    seen_exact = set()
+    mutation_file_indexes = {}
+
+    for step in candidates:
+        normalized = step.rstrip(". ").casefold()
+        is_run = bool(_RUN_STEP_RE.match(step))
+        if normalized in seen_exact:
+            if is_run and allow_repeat and len(result) < MAX_PLAN_STEPS:
+                result.append(step)
+            if len(result) >= MAX_PLAN_STEPS:
+                break
+            continue
+        seen_exact.add(normalized)
+
+        files = _FILE_RE.findall(step)
+        if _MUTATION_STEP_RE.match(step) and files:
+            existing_index = next(
+                (mutation_file_indexes[name] for name in files if name in mutation_file_indexes),
+                None,
+            )
+            if existing_index is not None:
+                if len(step) > len(result[existing_index]):
+                    result[existing_index] = step
+                continue
+            new_index = len(result)
+            for name in files:
+                mutation_file_indexes[name] = new_index
+
+        result.append(step)
+        if len(result) >= MAX_PLAN_STEPS:
+            break
+
+    return result if 2 <= len(result) <= MAX_PLAN_STEPS else []
 
 
 # ── Planning via 0.5B on port 8081 (or remote when KUZA_BACKEND_P is set) ──
@@ -158,7 +249,8 @@ def _get_plan_remote(prompt: str) -> Optional[List[str]]:
     """Route planning through the active planner backend (OpenRouter or UnlimitedClaude)."""
     try:
         from utils.config import (
-            PLANNER_TEMPERATURE, PLANNER_MAX_TOKENS, KUZA_PLANNER_BACKEND,
+            PLANNER_TEMPERATURE, PLANNER_MAX_TOKENS, PLANNER_TIMEOUT_SECONDS,
+            KUZA_PLANNER_BACKEND,
             OPENROUTER_PLANNER_MODEL, OPENROUTER_BASE_URL, OPENROUTER_API_KEY,
             UNLIMITEDCLAUDE_PLANNER_MODEL, UNLIMITEDCLAUDE_BASE_URL, UNLIMITEDCLAUDE_API_KEY,
         )
@@ -203,7 +295,7 @@ def _get_plan_remote(prompt: str) -> Optional[List[str]]:
             method="POST",
         )
         try:
-            with _req.urlopen(request, timeout=60) as resp:
+            with _req.urlopen(request, timeout=PLANNER_TIMEOUT_SECONDS) as resp:
                 result = _json.loads(resp.read().decode("utf-8"))
             msg = result["choices"][0].get("message", {})
             # content can be null when the model returns a tool_call instead of text
@@ -226,8 +318,7 @@ def _get_plan_remote(prompt: str) -> Optional[List[str]]:
             warning(f"[plannd] {backend_label} returned empty plan response")
             return None
 
-        steps = parse_steps(raw)
-        steps = filter_tool_steps(steps)
+        steps = validate_plan(prompt, parse_steps(raw))
         if not steps:
             warning(f"[plannd] {backend_label} response had no parseable steps. Raw: {raw[:120]}")
             return None
@@ -247,6 +338,9 @@ def get_plan(prompt: str) -> Optional[List[str]]:
     When KUZA_BACKEND_P (or KUZA_BACKEND) is a remote backend, routes
     there instead so the 0.5B server does not need to be running.
     """
+    if not should_plan(prompt):
+        return None
+
     try:
         from utils.config import is_remote_planner_backend
         if is_remote_planner_backend():
@@ -255,12 +349,18 @@ def get_plan(prompt: str) -> Optional[List[str]]:
         pass
 
     try:
-        from utils.config import PLANNER_TEMPERATURE, PLANNER_MAX_TOKENS
+        from utils.config import (
+            PLANNER_TEMPERATURE,
+            PLANNER_MAX_TOKENS,
+            PLANNER_TIMEOUT_SECONDS,
+        )
         temperature = PLANNER_TEMPERATURE
         max_tokens  = PLANNER_MAX_TOKENS
+        timeout = PLANNER_TIMEOUT_SECONDS
     except ImportError:
         temperature = 0.2
-        max_tokens  = 512
+        max_tokens  = 320
+        timeout = 45
 
     try:
         from utils.config import PLANND_SERVER_PORT
@@ -288,7 +388,7 @@ def get_plan(prompt: str) -> Optional[List[str]]:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
             result = json.loads(response.read().decode("utf-8"))
             choices = result.get("choices", [])
             if not choices:
@@ -296,8 +396,7 @@ def get_plan(prompt: str) -> Optional[List[str]]:
             raw = choices[0].get("message", {}).get("content", "").strip()
             if not raw:
                 return None
-            steps = parse_steps(raw)
-            steps = filter_tool_steps(steps)
+            steps = validate_plan(prompt, parse_steps(raw))
             return steps if steps else None
     except Exception as e:
         print(f"[plannd] get_plan error: {e}", flush=True)

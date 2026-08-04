@@ -1,0 +1,15 @@
+# Fine-tuning/training pipeline extras. Install requirements.txt first.
+-r requirements.txt
+datasets>=2.14.0
+huggingface-hub>=0.23.0
+fsspec==2026.2.0
+httpcore>=1.0.0
+typer>=0.9.0
+hnswlib>=0.7.0
+multiprocess>=0.70.0
+dill>=0.3.7
+xxhash>=3.4.0
+
+# Termux provides these as native packages:
+#   pkg install python-pyarrow python-pandas
+# Desktop users may install pyarrow and pandas with pip.

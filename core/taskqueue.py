@@ -8,8 +8,9 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Optional
 from datetime import datetime
+from utils.config import KUZA_STATE_DIR
 
-SESSIONS_DIR = Path.home() / '.kuza_sessions'
+SESSIONS_DIR = KUZA_STATE_DIR / 'queues'
 
 STATUS_PENDING  = 'pending'
 STATUS_RUNNING  = 'running'
@@ -81,7 +82,11 @@ class TaskQueue:
     def _queue_path(self):
         if self._path:
             return self._path
-        SESSIONS_DIR.mkdir(exist_ok=True)
+        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            SESSIONS_DIR.chmod(0o700)
+        except OSError:
+            pass
         key = hashlib.md5(self.project_dir.encode()).hexdigest()[:8]
         proj = Path(self.project_dir).name
         ts = datetime.now().strftime('%H%M%S')
@@ -98,6 +103,10 @@ class TaskQueue:
             'tasks': [asdict(t) for t in self.tasks],
         }
         path.write_text(json.dumps(data, indent=2))
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
 
     @classmethod
     def load(cls, path):
@@ -113,7 +122,11 @@ class TaskQueue:
 
 def list_queues():
     """Return all saved queues sorted by newest first."""
-    SESSIONS_DIR.mkdir(exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        SESSIONS_DIR.chmod(0o700)
+    except OSError:
+        pass
     paths = sorted(SESSIONS_DIR.glob('queue_*.json'),
                    key=lambda p: p.stat().st_mtime, reverse=True)
     result = []

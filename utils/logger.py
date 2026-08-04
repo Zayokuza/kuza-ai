@@ -1,8 +1,10 @@
 import sys
 import logging
+from pathlib import Path
 from rich.console import Console
 from rich.theme import Theme
 from typing import Optional
+from utils.redaction import redact_sensitive
 
 _theme = Theme({
     "info":    "bold cyan",
@@ -42,10 +44,21 @@ def setup_file_logging(log_file: str):
     """Set up file logging for daemon mode."""
     global _file_handler, _file_logger
     
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        log_path.parent.chmod(0o700)
+    except OSError:
+        pass
+
     _file_logger = logging.getLogger("kuza_daemon")
     _file_logger.setLevel(logging.DEBUG)
     
-    _file_handler = logging.FileHandler(log_file, mode='a')
+    _file_handler = logging.FileHandler(log_path, mode='a')
+    try:
+        log_path.chmod(0o600)
+    except OSError:
+        pass
     _file_handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     _file_handler.setFormatter(formatter)
@@ -57,7 +70,7 @@ def _log_to_file(level: str, message: str):
     """Log a message to the file handler."""
     if _file_logger:
         log_method = getattr(_file_logger, level.lower(), _file_logger.info)
-        log_method(message)
+        log_method(redact_sensitive(str(message)))
 
 
 def info(msg):

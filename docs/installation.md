@@ -123,10 +123,7 @@ pkg install python-pyarrow python-pandas
 #### Step 2 — Install Python packages via pip
 
 ```bash
-pip install datasets huggingface-hub "fsspec==2026.2.0" \
-            httpcore httpx typer tqdm hnswlib \
-            aiohttp multiprocess dill xxhash pyyaml \
-            filelock requests
+pip install -r requirements-pipeline.txt
 ```
 
 **Key notes:**

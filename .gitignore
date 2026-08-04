@@ -64,6 +64,8 @@ test1_output.log
 test_project/
 *.bak
 *.bak.*
+*.backup
+*.before-*
 README.md.bak*
 install.log
 install_background.log
@@ -78,4 +80,3 @@ config.local.*
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-*.before-*

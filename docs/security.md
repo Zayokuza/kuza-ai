@@ -69,7 +69,7 @@ Hierarchical memory stored in SQLite (`~/.kuza-v2/`).
 **Recommendation:** Avoid feeding sensitive information (API keys, passwords) to the agent. Periodically review or clear state:
 - **In-chat:** type `/clear` to wipe history, context, undo history, and saved session
 - **CLI flag:** `kuza2 --clear-session` to clear the saved session before starting
-- **Manual:** `rm -f ~/.kuza_sessions/*.json` to delete all saved sessions
+- **Manual:** remove JSON files from `~/.kuza-v2/sessions/` to delete all saved sessions
 
 ---
 

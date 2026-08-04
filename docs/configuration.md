@@ -39,7 +39,7 @@ Edit `utils/config.py` to tune inference behavior.
 
 ```python
 MODEL_CONFIG = {
-    "n_ctx":          32768,   # Context window
+    "n_ctx":          16384,   # Context window; KUZA_CTX overrides it
     "n_threads":      4,       # CPU threads (auto-reduced under thermal load)
     "n_gpu_layers":   0,       # GPU offload layers (0 = CPU only)
     "temperature":    0.7,
@@ -106,7 +106,7 @@ RECURSIVE_CONFIG = {
     "max_depth":             1,     # 1 = draft → critique → refine (3 calls total)
     "quality_threshold":     0.7,   # Skip refinement if self-score >= 7/10
     "recursive_for_writes":  True,
-    "recursive_for_plans":   True,
+    "recursive_for_plans":   False,
     "recursive_for_qa":      False, # Never recurse on Q&A
     "critique_budget":       512,   # Max tokens for critique response
     "retrieval_budget":      1200,  # Max chars of KB context in refine prompt

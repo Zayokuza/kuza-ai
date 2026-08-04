@@ -3,7 +3,7 @@
 Checkpoint system for Kuza-v2 self-modification.
 
 Before modifying core files, creates a checkpoint:
-- Targeted file backup in ~/.kuza-v2/checkpoints/
+- Targeted file backup in KUZA_STATE_DIR/checkpoints/
 - Read-only reference to the current Git commit, when available
 - SQLite record for tracking
 
@@ -19,11 +19,11 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 from utils.logger import info, warning, error, success
-from utils.config import CODE_DIR
+from utils.config import CODE_DIR, KUZA_STATE_DIR
 
 
 # Checkpoint directory
-CHECKPOINT_DIR = Path.home() / ".kuza-v2" / "checkpoints"
+CHECKPOINT_DIR = KUZA_STATE_DIR / "checkpoints"
 
 # Only Kuza's executable source is considered self-modification. Project files,
 # tests, documentation, and generated files in the repository are deliberately
@@ -111,6 +111,11 @@ def create_checkpoint(reason: str, files_modified: List[str] = None) -> str:
     checkpoint_id = str(time.time_ns())
     backup_dir = CHECKPOINT_DIR / checkpoint_id
     backup_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        CHECKPOINT_DIR.chmod(0o700)
+        backup_dir.chmod(0o700)
+    except OSError:
+        pass
 
     info(f"Checkpoint: creating '{checkpoint_id}' - {reason}")
 

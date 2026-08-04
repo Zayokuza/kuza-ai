@@ -88,6 +88,21 @@ python main.py "refactor my sort function to use timsort"
 
 To make env vars permanent, add them to `~/.bashrc` and run `source ~/.bashrc`.
 
+The base requirements are intentionally small enough for Termux. Contributors
+can install `requirements-dev.txt`; the optional training pipeline uses
+`requirements-pipeline.txt`.
+
+### Phone performance defaults
+
+Kuza now starts with a 16K context window and one model generation per agent
+step. These defaults avoid the repeated draft/review calls that can make a 7B
+model feel stuck on a phone. For an unusually difficult task, opt in with
+`KUZA_RECURSIVE=1`; use `KUZA_CTX=32768` only when the larger context is worth
+the additional RAM.
+
+The web GUI is also opt-in: set `KUZA_AUTO_GUI=1` before running `kuza2` if you
+want it started alongside the CLI.
+
 Any model slug from [openrouter.ai/models](https://openrouter.ai/models) works. You can also mix backends — run the planner locally while routing coding calls to OpenRouter:
 
 ```bash

@@ -11,20 +11,50 @@ Model: all-MiniLM-L6-v2 (small, ~80MB, fast)
 """
 
 import sqlite3
-import pickle
+import struct
 import time
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
 from utils.logger import info, warning, error, success
-from utils.config import KUZA_DIR
+from utils.config import KUZA_DIR, KUZA_STATE_DIR
 
 # Embedding model configuration
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384  # Dimension of all-MiniLM-L6-v2
 CHUNK_SIZE = 500     # Characters per chunk
 CHUNK_OVERLAP = 50   # Overlap between chunks
+_VECTOR_MAGIC = b"KZV1"
+_MAX_VECTOR_DIMENSIONS = 4096
+
+
+def _encode_embedding(vector) -> bytes:
+    """Encode a numeric vector without Python object deserialization."""
+    import numpy as np
+
+    array = np.asarray(vector, dtype="<f4").reshape(-1)
+    if not 0 < array.size <= _MAX_VECTOR_DIMENSIONS:
+        raise ValueError("Embedding has an invalid dimension")
+    return _VECTOR_MAGIC + struct.pack("<I", array.size) + array.tobytes()
+
+
+def _decode_embedding(blob: bytes):
+    """Decode Kuza's fixed binary vector format; reject legacy pickles."""
+    import numpy as np
+
+    if not isinstance(blob, (bytes, bytearray, memoryview)):
+        return None
+    raw = bytes(blob)
+    if len(raw) < 8 or not raw.startswith(_VECTOR_MAGIC):
+        return None
+    dimensions = struct.unpack("<I", raw[4:8])[0]
+    if not 0 < dimensions <= _MAX_VECTOR_DIMENSIONS:
+        return None
+    payload = raw[8:]
+    if len(payload) != dimensions * 4:
+        return None
+    return np.frombuffer(payload, dtype="<f4").copy()
 
 
 @dataclass
@@ -34,7 +64,7 @@ class Embedding:
     file_path: str
     chunk_start: int
     chunk_end: int
-    embedding: bytes  # Pickled numpy array
+    embedding: bytes  # Fixed-format little-endian float32 vector
     created_at: int
 
 
@@ -87,7 +117,7 @@ class EmbeddingModel:
         try:
             import numpy as np
             embedding = self._model.encode(text, convert_to_numpy=True)
-            return pickle.dumps(embedding)
+            return _encode_embedding(embedding)
         except Exception as e:
             error(f"Embedding error: {e}")
             return None
@@ -110,7 +140,7 @@ class EmbeddingModel:
         try:
             import numpy as np
             embeddings = self._model.encode(texts, convert_to_numpy=True)
-            return [pickle.dumps(e) for e in embeddings]
+            return [_encode_embedding(e) for e in embeddings]
         except Exception as e:
             error(f"Batch embedding error: {e}")
             return None
@@ -127,17 +157,27 @@ class EmbeddingStore:
     Stores:
     - File path
     - Chunk positions
-    - Embedding vector (pickled)
+    - Embedding vector (validated float32 binary format)
     - Timestamp
     """
     
     def __init__(self, db_path: Path = None):
         if db_path is None:
-            db_dir = Path.home() / ".kuza-v2"
+            db_dir = KUZA_STATE_DIR
             db_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                db_dir.chmod(0o700)
+            except OSError:
+                pass
             db_path = db_dir / "state.db"
-        self.db_path = db_path
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._ensure_schema()
+        try:
+            self.db_path.parent.chmod(0o700)
+            self.db_path.chmod(0o600)
+        except OSError:
+            pass
     
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection."""
@@ -177,7 +217,7 @@ class EmbeddingStore:
             file_path: Path to the source file
             chunk_start: Start position of chunk in file
             chunk_end: End position of chunk in file
-            embedding: Pickled embedding vector
+            embedding: Encoded float32 embedding vector
             
         Returns:
             ID of stored embedding
@@ -227,7 +267,7 @@ class EmbeddingStore:
         results ranked by similarity score.
         
         Args:
-            query_embedding: Pickled numpy query embedding
+            query_embedding: Encoded float32 query embedding
             limit: Maximum results to return
             
         Returns:
@@ -235,7 +275,9 @@ class EmbeddingStore:
         """
         try:
             import numpy as np
-            query_vec = pickle.loads(query_embedding)
+            query_vec = _decode_embedding(query_embedding)
+            if query_vec is None:
+                return []
             query_norm = np.linalg.norm(query_vec)
             if query_norm == 0:
                 return []
@@ -255,7 +297,9 @@ class EmbeddingStore:
             for row in cursor.fetchall():
                 try:
                     import numpy as np
-                    vec = pickle.loads(row["embedding"])
+                    vec = _decode_embedding(row["embedding"])
+                    if vec is None or vec.shape != query_vec.shape:
+                        continue
                     vec_norm = np.linalg.norm(vec)
                     if vec_norm == 0:
                         continue

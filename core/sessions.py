@@ -1,38 +1,29 @@
 """
 Session persistence — save and restore conversation history between sessions.
-Sessions stored in ~/.kuza_sessions/ as JSON files named by project path.
+Sessions live under KUZA_STATE_DIR/sessions as JSON files named by project path.
 """
 import json
-import re
 import os
 import hashlib
 from pathlib import Path
 from datetime import datetime
 from utils.logger import success, info, warning
+from utils.config import KUZA_STATE_DIR
+from utils.redaction import redact_sensitive
 
-SESSIONS_DIR = Path.home() / ".kuza_sessions"
-
-# Each entry: (compiled pattern, replacement string)
-# For key=value pairs use group \1 to keep the key, redact the value.
-_SECRET_PATTERNS = [
-    (re.compile(r"sk-[a-zA-Z0-9]{48}"),                    "[REDACTED]"),           # OpenAI key
-    (re.compile(r"ghp_[a-zA-Z0-9]{36}"),                   "[REDACTED]"),           # GitHub PAT
-    (re.compile(r'("password"\s*:\s*)"[^"]+"'),             r'\1"[REDACTED]"'),      # JSON password
-    (re.compile(r'(password\s*=\s*)\S+'),                   r'\1[REDACTED]'),        # env password
-    (re.compile(r'(api[_-]key\s*[:=]\s*)[a-zA-Z0-9_\-]{20,}', re.I), r'\1[REDACTED]'), # generic key
-]
+SESSIONS_DIR = KUZA_STATE_DIR / "sessions"
 
 def redact_secrets(text: str) -> str:
     """Mask potential secrets in text before saving to disk."""
-    if not isinstance(text, str):
-        return text
-    for pattern, replacement in _SECRET_PATTERNS:
-        text = pattern.sub(replacement, text)
-    return text
+    return redact_sensitive(text)
 
 def _session_path(project_dir: str = None) -> Path:
     """Get session file path for a project directory."""
-    SESSIONS_DIR.mkdir(exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        SESSIONS_DIR.chmod(0o700)
+    except OSError:
+        pass
     cwd = project_dir or os.getcwd()
     # Hash the path to make a safe filename
     key = hashlib.sha256(cwd.encode()).hexdigest()[:12]
@@ -61,6 +52,7 @@ def save_session(history: list, project_dir: str = None, max_turns: int = 6):
     }
     try:
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        path.chmod(0o600)
     except Exception as e:
         warning(f"Could not save session: {e}")
 
@@ -106,7 +98,11 @@ def clear_session(project_dir: str = None):
 
 def list_sessions() -> list[dict]:
     """List all saved sessions."""
-    SESSIONS_DIR.mkdir(exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        SESSIONS_DIR.chmod(0o700)
+    except OSError:
+        pass
     sessions = []
     for f in sorted(SESSIONS_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
         try:

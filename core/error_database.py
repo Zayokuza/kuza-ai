@@ -20,6 +20,7 @@ from datetime import datetime
 from collections import defaultdict
 
 from utils.logger import info, warning, success
+from utils.redaction import redact_sensitive, sanitize_for_log
 from core.state import get_state_store
 
 
@@ -28,11 +29,11 @@ class ErrorPattern:
 
     def __init__(self, error_type: str, error_message: str, fix: str,
                  success: bool, context: Dict = None):
-        self.error_type = error_type
-        self.error_message = error_message
-        self.fix = fix
+        self.error_type = redact_sensitive(str(error_type))[:200]
+        self.error_message = redact_sensitive(str(error_message))[:2000]
+        self.fix = redact_sensitive(str(fix))[:2000]
         self.success = success
-        self.context = context or {}
+        self.context = sanitize_for_log(context or {})
         self.created_at = datetime.now().isoformat()
         self.times_seen = 1
         self.times_fixed = 1 if success else 0
@@ -233,13 +234,13 @@ class ErrorDatabase:
             return
 
         pattern = self._cache[error_key]
-        pattern.fix = fix
+        pattern.fix = redact_sensitive(str(fix))[:2000]
         pattern.success = success
         if success:
             pattern.times_fixed += 1
 
         self._save_database()
-        info(f"Recorded fix for {pattern.error_type}: {fix[:50]}...")
+        info(f"Recorded fix for {pattern.error_type}: {pattern.fix[:50]}...")
 
     def learn_from_error(self, error_type: str, error_message: str,
                          fix: str, success: bool = True,

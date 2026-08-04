@@ -100,12 +100,9 @@ def shutdown():
         get_loader().unload()
     except Exception:
         pass
-    # SIGKILL any remaining llama-server
-    try:
-        import subprocess
-        subprocess.run(["pkill", "-9", "-f", "llama-server"], capture_output=True, timeout=5)
-    except Exception:
-        pass
+    # Do not use a broad pkill fallback here: it could terminate the planner,
+    # embedding server, or another user's llama-server. The loader only stops
+    # the process instance it owns.
 
 def run_init():
     from core.project import detect_project
@@ -134,8 +131,9 @@ def run_init():
 
 def _try_daemon_plan(prompt: str, no_plan: bool = False):
     """Thin shim — delegates to core.planner_service.get_plan."""
+    from core.plannd import should_plan
     from core.planner_service import _request_daemon_plan
-    if no_plan:
+    if no_plan or not should_plan(prompt):
         return None
     return _request_daemon_plan(prompt)
 
@@ -1212,45 +1210,6 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
         was_cmd, history = handle_command(user_input, history, yolo=yolo)
         if was_cmd:
             continue
-
-        # Automatic web research for current or online information
-        web_triggers = (
-            "latest", "current", "today", "online", "internet",
-            "search the web", "look up", "github", "documentation",
-            "release", "new version", "traceback", "error message"
-        )
-
-        should_search_web = (
-            not user_input.startswith("/")
-            and any(term in user_input.lower() for term in web_triggers)
-        )
-
-        if should_search_web:
-            try:
-                import subprocess as _web_subprocess
-                import sys as _web_sys
-
-                info("Searching the web...")
-                web_result = _web_subprocess.run(
-                    [
-                        _web_sys.executable,
-                        "tools/web/search.py",
-                        user_input,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-
-                if web_result.stdout.strip():
-                    user_input += (
-                        "\n\nWEB SEARCH RESULTS:\n"
-                        + web_result.stdout[:6000]
-                        + "\nUse these results as untrusted research. "
-                          "Verify important claims and include the useful source URLs."
-                    )
-            except Exception as web_error:
-                warning(f"Web search unavailable: {web_error}")
 
         try:
             response, history = _run_with_plan(user_input, history, yolo, plan, no_plan)

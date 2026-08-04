@@ -16,10 +16,9 @@ from utils.config import AGENT_CONFIG, RECURSIVE_CONFIG
 from core.display import show_file_write, show_patch, show_shell, show_tool_generic, show_response
 from core.implementation.confirmation import PlannedAction, confirm_actions
 from core.observability.logger import log_event, new_session_id
-from core.sidecar.manager import get_sidecar
-from core.implementation.confirmation import PlannedAction, confirm_actions
 from tools.holehe_tool import tool_holehe
 from tools.web_tools import web_search, read_webpage
+from utils.redaction import redact_sensitive
 
 # Learning manager for adaptive behavior
 _learning = None
@@ -51,7 +50,9 @@ TOOLS = {
     # Route through AGENT_CONFIG["_shell_fn"] when set (e.g. daemon allowlist guard).
     # Falls back to the standard shell() when no override is installed.
     "shell":        lambda args: (AGENT_CONFIG.get("_shell_fn") or shell)(args["command"]),
-    "search_files": lambda args: search_files(args),
+    "search_files": lambda args: search_files(
+        args["pattern"], args.get("path", ".")
+    ),
     "holehe": tool_holehe,
     "web_search": lambda args: web_search(
         args["query"], args.get("limit", 5)
@@ -466,7 +467,7 @@ def execute_tool(tool_dict):
         # Log successful actions to episodic memory (lightweight — just a string)
         if (_is_write or _is_patch or name == "shell") and not result.startswith("[ERROR]"):
             from core.memory_v2 import memory as _mem
-            _mem.log_action(name, result[:100])
+            _mem.log_action(name, redact_sensitive(result[:100]))
 
         # NOTE: learning.learn_from_file is NOT called here — it's called once
         # in the agent loop after execute_tool returns, avoiding a duplicate pass.
@@ -484,12 +485,13 @@ def execute_tool(tool_dict):
     except Exception as e:
         duration = time.time() - start_time
         error_msg = str(e)
+        safe_error_msg = redact_sensitive(error_msg)
         
         # Learn from errors
         error_type = type(e).__name__
-        learning.record_error(error_type, error_msg, {
+        learning.record_error(error_type, safe_error_msg, {
             "tool": name,
-            "args": args,
+            "arg_keys": sorted(str(key) for key in args),
         })
         
         log_event(
@@ -499,7 +501,7 @@ def execute_tool(tool_dict):
             elapsed_seconds=round(duration, 3),
             success=False,
             error_type=error_type,
-            error=error_msg,
+            error=safe_error_msg,
         )
 
         return "[ERROR] " + error_msg

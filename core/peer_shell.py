@@ -19,7 +19,10 @@ Requires: pip install pexpect
 import io
 import os
 import re
+import shlex
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -38,6 +41,20 @@ _CYAN  = "\033[1;36m"
 _DIM   = "\033[2m"
 _RESET = "\033[0m"
 _RED   = "\033[31m"
+
+_SHELL_CONTROL_RE = re.compile(r"[;&|<>`\n\r\x00]")
+
+
+def _parse_command(command: str) -> list[str]:
+    """Parse a configured peer command without permitting shell syntax."""
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError("Peer command is empty")
+    if _SHELL_CONTROL_RE.search(command) or "$(" in command:
+        raise ValueError("Peer command contains unsupported shell syntax")
+    argv = shlex.split(command)
+    if not argv:
+        raise ValueError("Peer command is empty")
+    return argv
 
 
 def _terminal_width() -> int:
@@ -115,8 +132,10 @@ def run_peer(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     print(f"{_DIM}{border}{_RESET}\n")
 
     try:
+        argv = _parse_command(cmd)
         child = pexpect.spawn(
-            cmd,
+            argv[0],
+            argv[1:],
             encoding="utf-8",
             timeout=300,
             dimensions=(40, min(width, 220)),
@@ -233,8 +252,6 @@ def run_prompted(cli_name: str, cmd: str, flag: str, prompt_text: str, yolo_flag
     No TUI, no trust dialogs, no pexpect needed.
     Returns "[PEER_ERROR: ...]" if the CLI fails so callers can handle it.
     """
-    import shlex
-    import subprocess
     width  = _terminal_width()
     border = "─" * width
 
@@ -246,7 +263,7 @@ def run_prompted(cli_name: str, cmd: str, flag: str, prompt_text: str, yolo_flag
     returncode = 0
     try:
         # shlex.split handles "gemini --model x" → ["gemini", "--model", "x"]
-        argv = shlex.split(cmd) + [flag, prompt_text]
+        argv = _parse_command(cmd) + [flag, prompt_text]
         if yolo_flag:
             argv.append(yolo_flag)
         proc = subprocess.Popen(
@@ -294,16 +311,19 @@ def run_positional(cli_name: str, cmd: str, prompt_text: str) -> str:
     The cmd string is split into argv parts and the prompt is appended as the
     final argument.  Streams output live and captures it for Kuza.
     """
-    import subprocess
     width  = _terminal_width()
     border = "─" * width
 
-    argv = cmd.split() + [prompt_text]
+    try:
+        argv = _parse_command(cmd) + [prompt_text]
+    except ValueError as exc:
+        return f"[PEER_ERROR: {cli_name} failed — {exc}]"
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' CLI  (direct)', width)}{_RESET}")
     info(f"Asking {cli_name}: {prompt_text[:100]}{'…' if len(prompt_text) > 100 else ''}")
     print(f"{_DIM}{border}{_RESET}\n")
 
     captured = []
+    returncode = 0
     try:
         proc = subprocess.Popen(
             argv,
@@ -318,15 +338,22 @@ def run_positional(cli_name: str, cmd: str, prompt_text: str) -> str:
             sys.stdout.flush()
             captured.append(line)
         proc.wait()
+        returncode = proc.returncode
     except FileNotFoundError:
         print(f"{_RED}[peer_shell] Command not found: {argv[0]}{_RESET}")
+        returncode = 127
     except Exception as e:
         print(f"{_RED}[peer_shell] Error: {e}{_RESET}")
+        returncode = 1
 
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
     info(f"Back in Kuza — reading {cli_name} output…")
-    return "".join(captured)
+    output = "".join(captured)
+    reason = _detect_peer_error(output, returncode)
+    if reason:
+        return f"[PEER_ERROR: {cli_name} failed — {reason}]"
+    return output
 
 
 def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
@@ -338,10 +365,14 @@ def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     Output is captured via the `script` utility so Kuza can read it.
     The prepared prompt is shown above the CLI so you can paste it in.
     """
-    import tempfile
     width   = _terminal_width()
     border  = "─" * width
-    outfile = tempfile.mktemp(prefix="kuza_peer_", suffix=".txt")
+    try:
+        argv = _parse_command(cmd)
+    except ValueError as exc:
+        return f"[PEER_ERROR: {cli_name} failed — {exc}]"
+    with tempfile.NamedTemporaryFile(prefix="kuza_peer_", suffix=".txt", delete=False) as handle:
+        outfile = handle.name
 
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' CLI', width)}{_RESET}")
     info(f"Opening {cli_name} in your terminal.")
@@ -357,7 +388,16 @@ def run_direct(cli_name: str, cmd: str, prompt_text: str = "") -> str:
     # `script -q -c <cmd> <file>` records the session to outfile
     # while letting the CLI run in the real terminal with full PTY support.
     # -q = quiet (no "Script started/done" lines)
-    os.system(f'script -q -c "{cmd}" "{outfile}"')
+    try:
+        result = subprocess.run(
+            ["script", "-q", "-c", shlex.join(argv), outfile],
+            check=False,
+        )
+        if result.returncode != 0:
+            warning(f"Peer {cli_name} exited with status {result.returncode}")
+    except FileNotFoundError:
+        Path(outfile).unlink(missing_ok=True)
+        return "[PEER_ERROR: the 'script' utility is not installed]"
 
     print(f"\n{_DIM}{border}{_RESET}")
     print(f"{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
@@ -487,9 +527,7 @@ def _run_basic_fallback(cli_name: str, cmd: str, prompt_text: str) -> str:
     Fallback when pexpect is not installed.
     Opens CLI with tee capture; user must type the prompt manually.
     """
-    import tempfile
     width  = _terminal_width()
-    outfile = tempfile.mktemp(prefix="kuza_peer_", suffix=".txt")
 
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' CLI  (manual mode)', width)}{_RESET}")
     if prompt_text:
@@ -497,15 +535,29 @@ def _run_basic_fallback(cli_name: str, cmd: str, prompt_text: str) -> str:
         print(f"{_DIM}{prompt_text}{_RESET}")
         print(f"{_DIM}{'─' * width}{_RESET}\n")
 
-    os.system(f'{cmd} 2>&1 | tee "{outfile}"')
+    try:
+        argv = _parse_command(cmd)
+        proc = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        captured = []
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            captured.append(line)
+        proc.wait()
+    except (OSError, ValueError) as exc:
+        return f"[PEER_ERROR: {cli_name} failed — {exc}]"
 
     print(f"\n{_CYAN}{_header(cli_name.upper() + ' DONE', width)}{_RESET}\n")
     info(f"Reading {cli_name} output…")
 
-    try:
-        import pathlib
-        out = pathlib.Path(outfile).read_text(encoding="utf-8", errors="replace")
-        pathlib.Path(outfile).unlink(missing_ok=True)
-        return out
-    except Exception:
-        return ""
+    output = "".join(captured)
+    reason = _detect_peer_error(output, proc.returncode)
+    if reason:
+        return f"[PEER_ERROR: {cli_name} failed — {reason}]"
+    return output

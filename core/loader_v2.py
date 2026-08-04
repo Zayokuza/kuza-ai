@@ -20,7 +20,7 @@ from typing import Optional
 from pathlib import Path
 
 from utils.logger import info, warning, error, success
-from utils.config import MODEL_PATH, MODEL_CONFIG, LLAMA_SERVER_BIN
+from utils.config import MODEL_PATH, MODEL_CONFIG, LLAMA_SERVER_BIN, KUZA_STATE_DIR
 
 # llama-server configuration
 SERVER_HOST = "127.0.0.1"
@@ -99,7 +99,7 @@ class LlamaServer:
                 pass  # Config not available — use llama.cpp defaults (mmap on, mlock off)
 
             # Start process - redirect output to log file to avoid pipe buffer issues
-            log_file = Path.home() / ".kuza-v2" / "llama-server.log"
+            log_file = KUZA_STATE_DIR / "llama-server.log"
             log_file.parent.mkdir(parents=True, exist_ok=True)
 
             with open(log_file, "w") as f:

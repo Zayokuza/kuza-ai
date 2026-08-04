@@ -12,7 +12,7 @@ This document captures everything you need to know to get correct tool calls, pr
 | Size | 7B parameters |
 | Variant | Instruct (instruction-tuned, NOT base) |
 | Quantization | Q4_K_M (4-bit, medium quality) |
-| Context window | 32768 tokens (supports up to 128K in fp16) |
+| Context window | 16384-token runtime default (model supports larger windows) |
 | Architecture | Transformer decoder, GQA, RoPE |
 | Training focus | Code generation + instruction following |
 | Released by | Alibaba Cloud (Oct 2024) |
@@ -84,7 +84,7 @@ Without these, the model will continue generating the next turn itself (role-pla
 ### Recommended fix in `utils/config.py`:
 ```python
 MODEL_CONFIG = {
-    "n_ctx": 32768,
+    "n_ctx": 16384,
     "n_threads": 4,
     "temperature": 0.7,    # ← was 0.2
     "top_p": 0.8,          # ← was 0.95
@@ -220,7 +220,7 @@ Critique calls use `stream=False` and do NOT update `_last_was_streamed` — onl
 
 ## 7. Context Budget Management
 
-Total context: 32768 tokens
+Default total context: 16384 tokens (`KUZA_CTX` can override it)
 
 | Layer | Budget |
 |---|---|
@@ -234,9 +234,9 @@ Total context: 32768 tokens
 | Conversation history | variable |
 | Model response reserve | 2048 tokens |
 | **Total fixed overhead** | ~2300 tokens |
-| **Available for conversation** | ~28420 tokens |
+| **Available for conversation** | ~12000 tokens |
 
-Summarization triggers at 55% of n_ctx (~18022 tokens used) and drops turns until usage falls to 40%. The `/summarize` command forces early summarization.
+Summarization is based on the configured context window. The `/summarize` command forces early summarization.
 
 ---
 
@@ -314,7 +314,7 @@ The model does NOT have native knowledge of what skills exist. Skills are inject
 ```python
 # Current (as of v2.6.8):
 MODEL_CONFIG = {
-    "n_ctx": 32768,        # ✅ Full context (model supports up to 128K)
+    "n_ctx": 16384,        # Phone-friendly default; KUZA_CTX can raise it
     "n_threads": 4,        # ✅ Correct for S24 Ultra thermal profile
     "temperature": 0.2,    # ⚠️  Too low — raises tool-call refusal risk
     "top_p": 0.95,         # ⚠️  Too high for Qwen — use 0.8

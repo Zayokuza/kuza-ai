@@ -416,24 +416,16 @@ def execute_strategy(strategy: FallbackStrategy, context: dict) -> str:
     error_msg = context.get("error_message", "")
     file_path = context.get("file_path", "")
 
-    # ---- pip_install: extract package from ImportError and install ----
+    # ---- pip_install: suggest a reviewed install; never mutate automatically ----
     if action == "pip_install":
         # Try to extract package name from error like "No module named 'foo'"
         m = re.search(r"No module named ['\"]([^'\"]+)['\"]", error_msg)
         pkg = m.group(1).split(".")[0] if m else None
         if pkg:
-            try:
-                result = subprocess.run(
-                    ["pip", "install", pkg],
-                    capture_output=True, text=True, timeout=60,
-                )
-                if result.returncode == 0:
-                    info(f"Recovery: installed '{pkg}' successfully")
-                    return f"Installed {pkg}: {result.stdout.strip()[:200]}"
-                else:
-                    return f"pip install {pkg} failed: {result.stderr.strip()[:200]}"
-            except Exception as e:
-                return f"pip install error: {e}"
+            return (
+                f"Missing Python package '{pkg}'. Review the package name, then "
+                f"install it explicitly with: python -m pip install {pkg}"
+            )
         return "Recovery: could not determine package name from error"
 
     # ---- search_files: search for similar files when file not found ----

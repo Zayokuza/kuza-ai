@@ -22,8 +22,9 @@ import time
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
 
-from utils.config import KUZA_DIR
+from utils.config import KUZA_DIR, KUZA_STATE_DIR
 from utils.logger import info, warning, error, success, set_log_level, setup_file_logging
+from utils.redaction import redact_sensitive
 from core.state import get_state_store, StateStore
 from core.daemon_config import get_config, DaemonConfig
 from core.task_executor import TaskExecutor
@@ -32,7 +33,7 @@ from core.task_executor import TaskExecutor
 
 # Daemon directory — defined at module level so check_pid_file / is_daemon_running
 # can use it without triggering a full Daemon init.
-DAEMON_DIR = Path.home() / ".kuza-v2"
+DAEMON_DIR = KUZA_STATE_DIR
 
 # Stable path constants with hardcoded defaults.
 # These may be overridden when Daemon.__init__ reads the config file.
@@ -127,16 +128,18 @@ class DaemonServer:
             return {"status": "error", "message": "No prompt provided"}
 
         # Log to episodic log
-        self.state.log_action("command_received", prompt[:200])
+        self.state.log_action("command_received", redact_sensitive(prompt[:200]))
 
         # ── plannd integration (Change 1) ────────────────────────────────────
         no_plan = data.get("no_plan", False)
-        if not no_plan:
+        from core.plannd import should_plan
+        if not no_plan and should_plan(prompt):
             try:
                 from core.planner_client import send_plan_request_async
+                from utils.config import PLANNER_TIMEOUT_SECONDS
                 steps = await asyncio.wait_for(
                     send_plan_request_async(prompt),
-                    timeout=180.0,
+                    timeout=PLANNER_TIMEOUT_SECONDS,
                 )
                 if steps and len(steps) > 1:
                     if data.get("plan_only", False):
@@ -177,7 +180,10 @@ class DaemonServer:
                 if steps:
                     info("plannd returned only 1 step — using single-task path")
             except asyncio.TimeoutError:
-                warning("plannd request timed out after 180 s — falling back to direct task")
+                warning(
+                    f"plannd request timed out after {PLANNER_TIMEOUT_SECONDS} s "
+                    "— falling back to direct task"
+                )
             except ConnectionRefusedError:
                 # plannd not running — silent fallback
                 pass
@@ -411,7 +417,6 @@ class Daemon:
         try:
             from core.memory_v2 import memory as _mem
             from core.kuzamd import find_kuzamd, read_kuzamd
-            from pathlib import Path as _Path
 
             # Load KUZA.md if it exists
             _kuzamd_path = find_kuzamd()
@@ -422,7 +427,7 @@ class Daemon:
                     info(f"ProjectMemory: loaded {_kuzamd_path}")
 
             # Load config.json if it exists
-            _config_path = _Path.home() / ".kuza-v2" / "config.json"
+            _config_path = KUZA_STATE_DIR / "config.json"
             if _config_path.exists():
                 _config_content = _config_path.read_text(encoding="utf-8", errors="replace")
                 _mem.add_to_project(str(_config_path), _config_content, is_protected=True)
