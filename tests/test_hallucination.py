@@ -204,3 +204,10 @@ class TestHallucinationDetection:
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])
+
+def test_python_write_requires_validation_instruction():
+    """Generated Python files should be followed by a validation command."""
+    source = Path("core/agent.py").read_text()
+
+    assert 'Validate {_written_path} before claiming completion.' in source
+    assert 'python -m py_compile {_written_path}' in source
