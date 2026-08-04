@@ -26,7 +26,9 @@ def confirm_actions(actions: Iterable[PlannedAction], *, yolo: bool = False) -> 
     - Interactive mode asks the user.
     """
 
-    if yolo:
+    from utils.config import AGENT_CONFIG
+
+    if yolo or AGENT_CONFIG.get("confirm_write") is False:
         return True
 
     print("\nKuza is about to:\n")

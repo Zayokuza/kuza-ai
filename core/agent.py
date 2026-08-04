@@ -14,6 +14,10 @@ from tools.shell_tools import shell, search_files
 from utils.logger import tool_call, tool_result, warning, separator, info, success
 from utils.config import AGENT_CONFIG, RECURSIVE_CONFIG
 from core.display import show_file_write, show_patch, show_shell, show_tool_generic, show_response
+from core.implementation.confirmation import PlannedAction, confirm_actions
+from core.observability.logger import log_event, new_session_id
+from core.sidecar.manager import get_sidecar
+from core.implementation.confirmation import PlannedAction, confirm_actions
 from tools.holehe_tool import tool_holehe
 from tools.web_tools import web_search, read_webpage
 
@@ -322,6 +326,14 @@ def execute_tool(tool_dict):
         return "[ERROR] Unknown tool: " + name
     
     start_time = time.time()
+    session_id = new_session_id()
+
+    log_event(
+        "tool_start",
+        session_id=session_id,
+        tool=name,
+        arguments=args,
+    )
     
     try:
         # For write_file: read old content for diff display BEFORE the write,
@@ -336,6 +348,30 @@ def execute_tool(tool_dict):
             if p.exists():
                 try: old_content = p.read_text()
                 except: pass
+
+        if name in ("write_file", "patch_file", "append_file"):
+            path = args.get("path", "<unknown>")
+
+            if name == "write_file":
+                op = "Create or overwrite file"
+            elif name == "patch_file":
+                op = "Patch existing file"
+            else:
+                op = "Append to existing file"
+
+            actions = [
+                PlannedAction(
+                    title=name.upper(),
+                    details=[
+                        f"Target: {path}",
+                        f"Operation: {op}",
+                        "Validation: compile/lint after write",
+                    ],
+                )
+            ]
+
+            if not confirm_actions(actions):
+                return "[CANCELLED] User declined the requested file modification."
 
         result = TOOLS[name](args)
         duration = time.time() - start_time
@@ -388,6 +424,14 @@ def execute_tool(tool_dict):
         # NOTE: learning.learn_from_file is NOT called here — it's called once
         # in the agent loop after execute_tool returns, avoiding a duplicate pass.
 
+        log_event(
+            "tool_end",
+            session_id=session_id,
+            tool=name,
+            elapsed_seconds=round(duration, 3),
+            success=not result.startswith("[ERROR]"),
+        )
+
         return result
         
     except Exception as e:
@@ -401,6 +445,16 @@ def execute_tool(tool_dict):
             "args": args,
         })
         
+        log_event(
+            "tool_exception",
+            session_id=session_id,
+            tool=name,
+            elapsed_seconds=round(duration, 3),
+            success=False,
+            error_type=error_type,
+            error=error_msg,
+        )
+
         return "[ERROR] " + error_msg
 
 def is_error(result, tool_name):

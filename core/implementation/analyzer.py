@@ -11,6 +11,7 @@ Builds a lightweight Python code index containing:
 """
 
 from __future__ import annotations
+from core.sidecar.manager import get_sidecar
 
 import ast
 from dataclasses import dataclass, field
@@ -139,3 +140,17 @@ def analyze_repository(root: str | Path = ".") -> RepositoryAnalysis:
             repository.symbols.setdefault(symbol.name, []).append(symbol)
 
     return repository
+
+
+def analyze_repository_async(root="."):
+    """
+    Submit repository analysis to the Sidecar.
+    Returns a job ID immediately.
+    """
+    sidecar = get_sidecar()
+    return sidecar.submit(
+        "repository_analysis",
+        analyze_repository,
+        root,
+        priority=10,
+    )

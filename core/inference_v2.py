@@ -16,6 +16,7 @@ from utils.logger import info, error, warning, success
 from utils.config import MODEL_CONFIG, CODEY_BACKEND, is_remote_backend
 from core.loader_v2 import get_loader
 from rich.console import Console
+from core.observability.logger import new_session_id, log_event
 import sys
 
 console = Console()
@@ -77,6 +78,15 @@ def infer(messages: list[dict], stream: bool = False, extra_stop: list = None,
     """
     global last_tps
 
+    session_id = new_session_id()
+    log_event(
+        "inference_start",
+        session_id=session_id,
+        message_count=len(messages),
+        stream=stream,
+        use_hybrid=use_hybrid,
+    )
+
     # Streaming currently leaves llama-server connections open on Android.
     # Use reliable blocking responses until the streaming transport is fixed.
     stream = False
@@ -92,8 +102,24 @@ def infer(messages: list[dict], stream: bool = False, extra_stop: list = None,
         backend = _get_chat_backend()
         if backend and backend != "http_fallback":
             try:
-                return _infer_chat(backend, messages, extra_stop, show_thinking, stream, max_tokens)
+                return _infer_chat(
+                    backend,
+                    messages,
+                    extra_stop,
+                    show_thinking,
+                    stream,
+                    max_tokens,
+                    session_id,
+                )
             except Exception as e:
+                log_event(
+                    "inference_error",
+                    session_id=session_id,
+                    success=False,
+                    backend=getattr(backend, "backend_name", "unknown"),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
                 warning(f"Chat completions failed: {e}, falling back to HTTP")
 
     # Legacy HTTP fallback
@@ -102,7 +128,8 @@ def infer(messages: list[dict], stream: bool = False, extra_stop: list = None,
 
 def _infer_chat(backend, messages: list[dict], extra_stop: list,
                 show_thinking: bool, stream: bool = False,
-                max_tokens: int = None) -> str:
+                max_tokens: int = None,
+                session_id: str = "") -> str:
     """Run inference via /v1/chat/completions — proper ChatML."""
     global last_tps, _last_was_streamed
 
@@ -127,6 +154,16 @@ def _infer_chat(backend, messages: list[dict], extra_stop: list,
     text, tokens, tps = result
     elapsed = time.time() - start
     last_tps = tps
+
+    log_event(
+        "inference_end",
+        session_id=session_id,
+        elapsed_seconds=round(elapsed, 3),
+        tokens=tokens,
+        tokens_per_second=tps,
+        backend=getattr(backend, "backend_name", "unknown"),
+        success=True,
+    )
     # Only update the flag when streaming — non-streaming calls (like critique)
     # must not overwrite a True set by a prior streaming draft call.
     if stream:
