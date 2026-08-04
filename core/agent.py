@@ -1019,8 +1019,12 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
 
     if use_plan:
         from core.planner import get_plan, show_and_confirm_plan
+        from core.repo_context import RepositoryContext
+
         info("Generating plan...")
-        plan = get_plan(user_message, read_kuzamd())
+        repo_context = RepositoryContext.collect(".").to_prompt()
+        planning_context = f"{read_kuzamd()}\n\n{repo_context}"
+        plan = get_plan(user_message, planning_context)
         approved, enriched = show_and_confirm_plan(plan)
         if not approved:
             return "[Cancelled]", history
