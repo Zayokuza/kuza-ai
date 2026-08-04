@@ -1,4 +1,4 @@
-# CODEY-V2
+# KUZA-AI
 
 ```
   ██████╗ ██████╗ ██████╗ ███████╗██╗   ██╗
@@ -10,32 +10,32 @@
   v2.0.0 · Local AI Coding Assistant · Termux
 ```
 
-> **Kuza-v2: A persistent, fully local AI coding agent that runs in Termux on your Android phone — with daemon mode, RAG, git tools, voice, and self-refinement. No cloud required.**
+> **Kuza-AI: A persistent, fully local AI coding agent that runs in Termux on your Android phone — with daemon mode, RAG, git tools, voice, and self-refinement. No cloud required.**
 
-[![Stars](https://img.shields.io/github/stars/Ishabdullah/Kuza-v2?style=flat-square&color=gold)](https://github.com/Ishabdullah/Kuza-v2/stargazers)
-[![License](https://img.shields.io/github/license/Ishabdullah/Kuza-v2?style=flat-square)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/Ishabdullah/Kuza-v2?style=flat-square)](https://github.com/Ishabdullah/Kuza-v2/commits/main)
+[![Stars](https://img.shields.io/github/stars/Zayokuza/kuza-ai?style=flat-square&color=gold)](https://github.com/Zayokuza/kuza-ai/stargazers)
+[![License](https://img.shields.io/github/license/Zayokuza/kuza-ai?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/Zayokuza/kuza-ai?style=flat-square)](https://github.com/Zayokuza/kuza-ai/commits/main)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![llama.cpp](https://img.shields.io/badge/inference-llama.cpp-green?style=flat-square)](https://github.com/ggerganov/llama.cpp)
 
 ![Kuza Mascot](assets/kuza-mascot.png)
 
-A persistent, daemon-based AI coding agent that runs entirely on your Android device. CODEY-V2 maintains state across sessions, manages a background task queue, and uses three purpose-built models — a 7B primary agent, a 0.5B planner and summarizer, and a dedicated embedding encoder — all served locally via llama.cpp.
+A persistent, daemon-based AI coding agent that runs entirely on your Android device. Kuza-AI maintains state across sessions, manages a background task queue, and uses three purpose-built models — a 7B primary agent, a 0.5B planner and summarizer, and a dedicated embedding encoder — all served locally via llama.cpp.
 
-> **Security notice:** CODEY-V2 executes shell commands and writes files based on model output. Read the [security guide](docs/security.md) before use.
+> **Security notice:** Kuza-AI executes shell commands and writes files based on model output. Read the [security guide](docs/security.md) before use.
 
 ---
 
-## Why Kuza-v2?
+## Why Kuza-AI?
 
-In a world full of powerful cloud-based AI coding tools (like multi-agent orchestration layers for Claude Code), Kuza-v2 takes a different path:
+In a world full of powerful cloud-based AI coding tools (like multi-agent orchestration layers for Claude Code), Kuza-AI takes a different path:
 
 - **Truly offline & private** — Runs 100% locally on your Android phone using small models via llama.cpp. No internet, no API keys, no data leaving your device.
 - **Mobile-first** — Built for Termux. Start a persistent daemon and vibe-code from anywhere: commute, couch, bed, or while traveling.
 - **Lightweight & practical** — Smart thermal management, voice input, git integration, RAG, and a built-in escalation pipeline (automatically asks your installed Claude Code / Qwen CLI / Gemini CLI for help when stuck).
 - **Hybrid when you want it** — Optional OpenRouter fallback for heavier tasks — everything is pre-configured.
 
-Kuza-v2 isn't trying to replace desktop cloud super-agents. It's your **pocket coding companion** for when you want freedom, privacy, and zero dependency.
+Kuza-AI isn't trying to replace desktop cloud super-agents. It's your **pocket coding companion** for when you want freedom, privacy, and zero dependency.
 
 If you value coding on the go without burning subscriptions or sending code to the cloud, this is for you.
 
@@ -47,7 +47,7 @@ If you value coding on the go without burning subscriptions or sending code to t
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/Ishabdullah/Kuza-v2.git && cd Kuza-v2
+git clone https://github.com/Zayokuza/kuza-ai-AI.git && cd Kuza-AI
 
 # 2. Run the installer (downloads models, builds llama.cpp, sets PATH)
 ./install.sh
@@ -70,7 +70,7 @@ See [docs/installation.md](docs/installation.md) for manual setup and model down
 
 ```bash
 # 1. Clone and install Python dependencies
-git clone https://github.com/Ishabdullah/Kuza-v2.git && cd Kuza-v2
+git clone https://github.com/Zayokuza/kuza-ai-AI.git && cd Kuza-AI
 pip install -r requirements.txt
 
 # 2. Set your API key (get one at https://openrouter.ai/keys)
@@ -99,11 +99,11 @@ export CODEY_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 
 ## Visuals
 
-### Fibonacci Demo — Kuza-v2 in Action
+### Fibonacci Demo — Kuza-AI in Action
 
-![Kuza-v2 Fibonacci Demo](assets/demo-fibonacci.gif)
+![Kuza-AI Fibonacci Demo](assets/demo-fibonacci.gif)
 
-> Kuza-v2 generating a Fibonacci sequence implementation entirely on-device — no cloud, no internet, running in Termux on Android.
+> Kuza-AI generating a Fibonacci sequence implementation entirely on-device — no cloud, no internet, running in Termux on Android.
 
 ---
 
@@ -111,7 +111,7 @@ export CODEY_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 
 ### First Stable Release
 
-- **Rebranded to CODEY-V2** — clean CLI banner in blue, unified name across all interfaces
+- **Rebranded to Kuza-AI** — clean CLI banner in blue, unified name across all interfaces
 - **Malformed JSON recovery** — relaxed parser now handles unquoted values emitted by smaller models, eliminating silent tool-call failures
 - **Shell safety hardened** — dangerous command detection expanded to catch `find -delete`, `git reset --hard`, `git push --force`, and indirect execution via `sh -c` / `bash -c`
 - **Peer code extraction improved** — fuzzy filename matching in peer output now handles `### File: x.py` and `File: x.py` heading styles in addition to bold/backtick patterns
@@ -141,7 +141,7 @@ All three run as independent llama-server processes, managed and watchdog-monito
 - **RAG retrieval** — local knowledge base searched on every inference call; relevant docs injected automatically
 - **Recursive self-refinement** — draft → critique → refine cycle catches bugs before they hit your files
 - **Error recovery** — adaptive strategy switching when tools fail (write → patch, import error → install, etc.)
-- **Peer CLI escalation** — delegates work to Claude Code, Gemini CLI, or Qwen CLI either on-demand ("ask Claude to X") or automatically when CODEY-V2 exhausts its retry budget. The peer receives current project file contents and returns complete, ready-to-apply code blocks that CODEY-V2 writes to disk. Requires explicit user consent before any files are shared (external services — see [Security](docs/security.md))
+- **Peer CLI escalation** — delegates work to Claude Code, Gemini CLI, or Qwen CLI either on-demand ("ask Claude to X") or automatically when Kuza-AI exhausts its retry budget. The peer receives current project file contents and returns complete, ready-to-apply code blocks that Kuza-AI writes to disk. Requires explicit user consent before any files are shared (external services — see [Security](docs/security.md))
 - **Git integration** — branch management, AI commit messages, conflict detection and resolution
 - **Voice interface** — TTS output and STT input via Termux:API
 - **Static analysis** — auto-lint on every Python write; `/review` command for on-demand scans
@@ -194,7 +194,7 @@ Bug reports, security disclosures, and hardening contributions are especially we
 - [llama.cpp](https://github.com/ggerganov/llama.cpp) — efficient on-device LLM inference
 - [Qwen](https://huggingface.co/Qwen) — Qwen2.5-Coder models
 - [nomic-ai](https://huggingface.co/nomic-ai) — nomic-embed-text embedding model
-- [Kuza v1](https://github.com/Ishabdullah/Kuza) — the original session-based agent this builds on
+- [Kuza v1](https://github.com/Zayokuza/kuza-ai) — the original session-based agent this builds on
 
 ---
 
