@@ -978,9 +978,20 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 return "[Cancelled]", history
             run_queue(queue, yolo=yolo)
             _failed = [t for t in queue.tasks if t.status == 'failed']
-            summary = f"Completed {queue.done_count()}/{len(queue.tasks)} tasks."
+            _audit_passed = getattr(queue, 'completion_audit_passed', False)
+
+            if _audit_passed:
+                summary = f"Completed {queue.done_count()}/{len(queue.tasks)} tasks."
+            else:
+                summary = (
+                    f"[INCOMPLETE] Completed {queue.done_count()}/"
+                    f"{len(queue.tasks)} tasks, but final verification failed."
+                )
+
             if _failed:
-                summary += " Failed: " + "; ".join(t.description[:50] for t in _failed) + "."
+                summary += " Failed: " + "; ".join(
+                    t.description[:50] for t in _failed
+                ) + "."
             history.append({"role": "user",     "content": user_message})
             history.append({"role": "assistant", "content": summary})
             return summary, history

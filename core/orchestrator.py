@@ -360,25 +360,42 @@ def _is_result_failure(summary):
 
 def _completion_audit(queue):
     """
-    After all subtasks finish, check whether the overall goal was met.
-    Reports any deliverables from the original request that appear to be missing.
+    Verify that the overall request was actually completed.
+
+    Returns True only when expected deliverables exist and no tasks failed.
     """
     original = getattr(queue, 'original_request', '')
-    if not original:
-        return
 
-    # Extract filenames the user expected to exist
-    expected_files = _FILE_RE.findall(original)
+    expected_files = _FILE_RE.findall(original) if original else []
     missing = [f for f in expected_files if not (Path.cwd() / f).exists()]
     failed_tasks = [t for t in queue.tasks if t.status == 'failed']
+    unfinished_tasks = [
+        t for t in queue.tasks
+        if t.status not in ('done', 'failed')
+    ]
 
     if missing:
-        warning(f"[Audit] Requested file(s) not found after all steps: {', '.join(missing)}")
+        warning(
+            f"[Audit] Requested file(s) not found after all steps: "
+            f"{', '.join(missing)}"
+        )
     if failed_tasks:
-        warning(f"[Audit] {len(failed_tasks)} task(s) failed: " +
-                ', '.join(t.description[:50] for t in failed_tasks))
-    if not missing and not failed_tasks:
-        info("[Audit] All expected deliverables present.")
+        warning(
+            f"[Audit] {len(failed_tasks)} task(s) failed: " +
+            ', '.join(t.description[:50] for t in failed_tasks)
+        )
+    if unfinished_tasks:
+        warning(
+            f"[Audit] {len(unfinished_tasks)} task(s) unfinished: " +
+            ', '.join(t.description[:50] for t in unfinished_tasks)
+        )
+
+    passed = not missing and not failed_tasks and not unfinished_tasks
+
+    if passed:
+        info("[Audit] All expected deliverables present and all tasks completed.")
+
+    return passed
 
 
 def run_queue(queue, yolo=False):
@@ -550,5 +567,5 @@ def run_queue(queue, yolo=False):
     finally:
         signal.signal(signal.SIGINT, old_handler)
 
-    _completion_audit(queue)
+    queue.completion_audit_passed = _completion_audit(queue)
     return queue
