@@ -77,6 +77,10 @@ def infer(messages: list[dict], stream: bool = False, extra_stop: list = None,
     """
     global last_tps
 
+    # Streaming currently leaves llama-server connections open on Android.
+    # Use reliable blocking responses until the streaming transport is fixed.
+    stream = False
+
     # Skip local loader when using a remote backend
     if not is_remote_backend():
         loader = get_loader()
