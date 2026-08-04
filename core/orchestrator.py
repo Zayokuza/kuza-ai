@@ -173,6 +173,47 @@ def _postprocess_plan(tasks):
 
     return merged[:8]
 
+def _ensure_validation_step(task_list, user_message):
+    """Ensure Python code plans end with a concrete validation command."""
+    combined = " ".join([user_message, *task_list])
+
+    python_files = []
+    for filename in _FILE_RE.findall(combined):
+        if filename.endswith(".py") and filename not in python_files:
+            python_files.append(filename)
+
+    touches_python = bool(python_files) or any(
+        word in combined.lower()
+        for word in ("python", "function", "class", "module", "script")
+    )
+
+    already_validates = any(
+        any(marker in task.lower() for marker in (
+            "py_compile",
+            "compileall",
+            "pytest",
+            "unittest",
+            "run tests",
+            "syntax check",
+            "validate",
+            "verify",
+        ))
+        for task in task_list
+    )
+
+    if touches_python and not already_validates:
+        if python_files:
+            command = "Run: python -m py_compile " + " ".join(python_files)
+        else:
+            command = "Run: python -m compileall -q ."
+
+        # Reserve the eighth and final slot for validation.
+        task_list = task_list[:7]
+        task_list.append(command)
+
+    return task_list[:8]
+
+
 def plan_tasks(user_message, project_context=''):
     """
     Ask model to plan the task. Returns TaskQueue.
@@ -251,6 +292,8 @@ def plan_tasks(user_message, project_context=''):
     if not task_list:
         # Fallback: treat whole message as one task
         task_list = [user_message]
+
+    task_list = _ensure_validation_step(task_list, user_message)
     queue = TaskQueue(name=user_message[:60], project_dir=str(Path.cwd()))
     queue.original_request = user_message
     for desc in task_list:
