@@ -1210,24 +1210,22 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                  messages.append({"role": "user", "content": "Just answer my question directly with text. No tools needed. Final answer format: 'I can help with [tasks].'"})
                  continue
             
-            # Specific check for write/patch
-            if name in ["write_file", "patch_file", "append_file"]:
+            # Allow supporting files required by implementation tasks.
+            # Only block surprise writes when the original request was classified
+            # as ordinary Q&A rather than an action.
+            if name in ["write_file", "patch_file", "append_file"] and is_qa:
                 path = args.get("path", "")
-                if path and path.lower() not in msg_low:
-                    from pathlib import Path as _P
-                    if not _P(path).exists() and not any(k in msg_low for k in ["create", "write", "new", "make"]):
-                        # Exception: if we are retrying after a "No such file" shell
-                        # error, the model is correctly trying to create the missing
-                        # file — allow it through instead of blocking.
-                        _missing_file_retry = (
-                            auto_retries > 0
-                            and "no such file" in last_tool_result.lower()
-                        )
-                        if not _missing_file_retry:
-                            warning(f"Model tried to create/edit unexpected file: {path}")
-                            messages.append({"role": "assistant", "content": response})
-                            messages.append({"role": "user", "content": f"I didn't ask to modify '{path}'. Please answer my question directly."})
-                            continue
+                if path:
+                    warning(f"Model tried to modify a file during Q&A: {path}")
+                    messages.append({"role": "assistant", "content": response})
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "This was classified as a question, so do not modify files. "
+                            "Answer directly with text."
+                        ),
+                    })
+                    continue
 
             sig = name + ":" + json.dumps(args, sort_keys=True)
             if sig in tools_used:

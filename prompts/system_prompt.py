@@ -225,8 +225,8 @@ RULES:
 - Be concise. 2-3 sentences max for questions.
 - If user says "remember" or "don't forget", use note_save.
 - Shell: one command per tool call. Compound commands (&&, |, ;) are allowed — the user will be asked to approve them.
-- Current step is your ONLY scope. Never create or modify files not required by the Current step.
-- Write files directly in the current working directory unless a subdirectory path was explicitly stated in the Overall goal. Do NOT invent or create subdirectory paths (e.g. do not write to python/snippets/ when the goal just says "create fibonacci.py").
+- The Overall goal is authoritative. Complete all required steps and create or modify supporting files when they are necessary to satisfy it.
+- Use the existing project structure when possible. Create sensible subdirectories only when required by the implementation, and report what was added.
 """
 
 
