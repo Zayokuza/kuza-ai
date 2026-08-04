@@ -1316,27 +1316,40 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                     pass
 
             messages.append({"role": "assistant", "content": _format_tool_for_history(tool_dict)})
-            # Validate generated Python code before claiming completion.
-            if name == "write_file" and not is_error(last_tool_result, name):
-                _written_path = args.get("path", "")
-                if _written_path.endswith(".py"):
-                    messages.append({
-                        "role": "user",
-                        "content": (
+            # After write_file for a simple create request — force exit the loop.
+            # The 7B model ignores "don't run commands" instructions and keeps
+            # calling read_file/shell, so we must hard-stop here.
+            if (
+                name == "write_file"
+                and not is_error(last_tool_result, name)
+                and not any(k in user_message.lower() for k in ["run", "execute", "test", "start", "launch"])
+            ):
+                _written_path = args.get("path", "the file")
+                # Exception: for bug-fix requests with existing test files, inject a test run
+                # instead of returning early — ensures fixes are actually verified.
+                _is_fix = any(k in user_message.lower() for k in ["fix", "bug", "patch", "correct", "repair", "debug"])
+                if _is_fix:
+                    from pathlib import Path as _Path
+                    _test_candidates = (
+                        list(_Path.cwd().glob("test_*.py")) +
+                        list(_Path.cwd().glob("*_test.py"))
+                    )
+                    if _test_candidates:
+                        _tf = _test_candidates[0].name
+                        _tf_mod = _test_candidates[0].stem
+                        messages.append({"role": "user", "content": (
                             f"Tool result: {last_tool_result[:300]}\n"
-                            f"Validate {_written_path} before claiming completion. "
-                            f"Run: python -m py_compile {_written_path}"
-                        ),
-                    })
-                    auto_retries = 0
-                    continue
-
-                _confirm = f"Created {_written_path or 'the file'}"
+                            f"Fixed {_written_path}. Now run the tests to verify the fix:\n"
+                            f"python -m pytest {_tf} -v 2>&1 || python -m unittest {_tf_mod} -v 2>&1"
+                        )})
+                        auto_retries = 0
+                        continue
+                _confirm = f"Created {_written_path}"
                 separator()
                 print("\033[1;32mKuza:\033[0m " + _confirm)
                 separator()
-                history.append({"role": "user", "content": user_message})
-                history.append({"role": "assistant", "content": _confirm})
+                history.append({"role": "user",      "content": user_message})
+                history.append({"role": "assistant",  "content": _confirm})
                 return _confirm, history
             else:
                 # 2000 chars gives the model enough content to work with.
