@@ -33,7 +33,7 @@
 | `--threads N` | Override CPU thread count |
 | `--ctx N` | Override context window size |
 | `--read <file>` | Pre-load a file into context before starting |
-| `--init` | Generate `CODEY.md` for the current project and exit |
+| `--init` | Generate `KUZA.md` for the current project and exit |
 | `--fix <file>` | Run a file and auto-fix any errors |
 | `--tdd <file>` | TDD mode — run tests and iterate until they pass |
 | `--no-resume` | Start a fresh session (ignore saved history) |
@@ -118,12 +118,12 @@
 
 | Variable | Description |
 |----------|-------------|
-| `CODEY_MODEL` | Override the primary model path |
-| `CODEY_EMBED_MODEL` | Override the embedding model path |
-| `CODEY_7B_MMAP=0` | Disable memory-mapped weights (use if RAM is tight) |
-| `CODEY_7B_MLOCK=1` | Lock weights in RAM (prevents paging under pressure) |
-| `CODEY_THREADS` | Override CPU thread count |
-| `CODEY_LINTER` | Override linter: `ruff`, `flake8`, or `mypy` |
-| `CODEY_PLANND_PORT` | Override the planner/summarizer model port (default 8081) |
-| `CODEY_EMBED_PORT` | Override the embedding model port (default 8082) |
+| `KUZA_MODEL` | Override the primary model path |
+| `KUZA_EMBED_MODEL` | Override the embedding model path |
+| `KUZA_7B_MMAP=0` | Disable memory-mapped weights (use if RAM is tight) |
+| `KUZA_7B_MLOCK=1` | Lock weights in RAM (prevents paging under pressure) |
+| `KUZA_THREADS` | Override CPU thread count |
+| `KUZA_LINTER` | Override linter: `ruff`, `flake8`, or `mypy` |
+| `KUZA_PLANND_PORT` | Override the planner/summarizer model port (default 8081) |
+| `KUZA_EMBED_PORT` | Override the embedding model port (default 8082) |
 | `ALLOW_SELF_MOD=1` | Enable self-modification (alternative to `--allow-self-mod`) |

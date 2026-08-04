@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
 
-from utils.config import CODEY_DIR
+from utils.config import KUZA_DIR
 from utils.logger import info, warning, error, success, set_log_level, setup_file_logging
 from core.state import get_state_store, StateStore
 from core.daemon_config import get_config, DaemonConfig
@@ -410,7 +410,7 @@ class Daemon:
         # Wire ProjectMemory: load KUZA.md and config.json at boot (never evicted)
         try:
             from core.memory_v2 import memory as _mem
-            from core.codeymd import find_kuzamd, read_kuzamd
+            from core.kuzamd import find_kuzamd, read_kuzamd
             from pathlib import Path as _Path
 
             # Load KUZA.md if it exists
@@ -464,7 +464,7 @@ class Daemon:
 
         # Pre-load 7B model (llama-server on port 8080) so it's ready for CLI
         # Skip when using a remote backend — no local server needed
-        from utils.config import CODEY_BACKEND as _backend, is_remote_backend as _is_remote
+        from utils.config import KUZA_BACKEND as _backend, is_remote_backend as _is_remote
         if not _is_remote():
             try:
                 from core.loader_v2 import get_loader

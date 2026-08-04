@@ -81,7 +81,7 @@ def _is_pinned(msg: dict) -> bool:
 def _call_05b(dropped_msgs: list[dict]) -> str | None:
     """
     Summarize dropped messages using the 0.5B on port 8081, or OpenRouter
-    when CODEY_BACKEND=openrouter.  Returns the summary string or None.
+    when KUZA_BACKEND=openrouter.  Returns the summary string or None.
     """
     if not dropped_msgs:
         return None
@@ -98,10 +98,10 @@ def _call_05b(dropped_msgs: list[dict]) -> str | None:
 
     # Route to remote planner backend when active — avoids needing the local 0.5B server
     try:
-        from utils.config import is_remote_planner_backend, CODEY_PLANNER_BACKEND
+        from utils.config import is_remote_planner_backend, KUZA_PLANNER_BACKEND
         if is_remote_planner_backend():
             from core.inference_openrouter import get_remote_backend
-            backend = get_remote_backend(CODEY_PLANNER_BACKEND)
+            backend = get_remote_backend(KUZA_PLANNER_BACKEND)
             result = backend.infer(messages, max_tokens=160, stream=False)
             if result:
                 text, _, _ = result

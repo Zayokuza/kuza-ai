@@ -1,5 +1,5 @@
 """
-CODEY-V2 GUI Server  —  uses only aiohttp (already in requirements.txt)
+KUZA-V2 GUI Server  —  uses only aiohttp (already in requirements.txt)
 Run:  python gui/server.py [port]
 Then: open http://localhost:8888 in your browser
 """
@@ -13,7 +13,7 @@ from typing import Dict, Optional, Set
 
 from aiohttp import web, WSMsgType
 
-CODEY_DIR = Path(__file__).parent.parent
+KUZA_DIR = Path(__file__).parent.parent
 GUI_DIR   = Path(__file__).parent
 
 # ─── ANSI / metric parsers ────────────────────────────────────────────────────
@@ -75,8 +75,8 @@ async def probe_port(port: int) -> bool:
 
 
 async def get_model_status() -> Dict:
-    backend   = os.environ.get('CODEY_BACKEND',   'local')
-    backend_p = os.environ.get('CODEY_BACKEND_P', backend)
+    backend   = os.environ.get('KUZA_BACKEND',   'local')
+    backend_p = os.environ.get('KUZA_BACKEND_P', backend)
 
     async def maybe_probe(port: int, be: str) -> bool:
         return (await probe_port(port)) if be == 'local' else False
@@ -131,11 +131,11 @@ async def run_kuza(prompt: str) -> None:
     try:
         active_proc = await asyncio.create_subprocess_exec(
             sys.executable,
-            str(CODEY_DIR / 'main.py'),
+            str(KUZA_DIR / 'main.py'),
             prompt,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
-            cwd=str(CODEY_DIR),
+            cwd=str(KUZA_DIR),
             env=env,
         )
 
@@ -238,7 +238,7 @@ def make_app() -> web.Application:
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('CODEY_GUI_PORT', '8888'))
-    host = os.environ.get('CODEY_GUI_HOST', '0.0.0.0')
-    print(f'\n  CODEY-V2 GUI  →  http://localhost:{port}\n')
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('KUZA_GUI_PORT', '8888'))
+    host = os.environ.get('KUZA_GUI_HOST', '0.0.0.0')
+    print(f'\n  KUZA-V2 GUI  →  http://localhost:{port}\n')
     web.run_app(make_app(), host=host, port=port, print=lambda *_: None)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CODEY-V2 GUI launcher
+# KUZA-V2 GUI launcher
 # Usage:  bash gui/start.sh [port]
 #
 # Starts the browser GUI in the background, then drops you into the
@@ -11,12 +11,12 @@ set -e
 cd "$(dirname "$0")/.."
 
 PORT="${1:-8888}"
-export CODEY_GUI_PORT="$PORT"
+export KUZA_GUI_PORT="$PORT"
 export PYTHONUNBUFFERED=1
 
 echo ""
 echo "  ╔══════════════════════════════════════╗"
-echo "  ║    CODEY-V2  ·  GUI + CLI LAUNCHER   ║"
+echo "  ║    KUZA-V2  ·  GUI + CLI LAUNCHER   ║"
 echo "  ╠══════════════════════════════════════╣"
 echo "  ║  Browser → http://localhost:${PORT}      ║"
 echo "  ║  Terminal → interactive kuza2 below ║"

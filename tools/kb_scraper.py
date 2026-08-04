@@ -20,7 +20,7 @@ import hashlib
 from pathlib import Path
 
 # ── KB root — resolved from env var so it works wherever kuza-v2 lives ──────
-KB_ROOT = Path(os.environ.get("CODEY_DIR", Path.home() / "kuza-v2")) / "knowledge"
+KB_ROOT = Path(os.environ.get("KUZA_DIR", Path.home() / "kuza-v2")) / "knowledge"
 
 # Chunk tuning — 512 words ≈ ~680 tokens (fits within retrieval budget)
 CHUNK_SIZE = 512       # words per chunk

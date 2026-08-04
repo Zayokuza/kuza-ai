@@ -419,7 +419,7 @@ class PreferenceManager:
     def _sync_to_kuzamd(self, key: str, value: str):
         """Write a learned preference into the Conventions section of KUZA.md."""
         try:
-            from core.codeymd import find_kuzamd
+            from core.kuzamd import find_kuzamd
             import os
             kuzamd_path = find_kuzamd()
             if not kuzamd_path:

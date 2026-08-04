@@ -18,7 +18,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
 from utils.logger import info, warning, error, success
-from utils.config import CODEY_DIR
+from utils.config import KUZA_DIR
 
 # Embedding model configuration
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"

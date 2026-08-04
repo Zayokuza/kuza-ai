@@ -158,10 +158,10 @@ class TestProjectMemory(unittest.TestCase):
 
     def test_add_protected_file(self):
         """Add file with explicit protected flag."""
-        self.pm.add("CODEY.md", "content", is_protected=True)
-        self.assertTrue(self.pm.is_tracked("CODEY.md"))
+        self.pm.add("KUZA.md", "content", is_protected=True)
+        self.assertTrue(self.pm.is_tracked("KUZA.md"))
         protected = self.pm.get_protected_files()
-        self.assertIn("CODEY.md", protected)
+        self.assertIn("KUZA.md", protected)
 
     def test_add_auto_protected_by_pattern(self):
         """Files matching protected patterns should be auto-protected."""
@@ -489,8 +489,8 @@ class TestMemoryAddToProject(unittest.TestCase):
 
     def test_add_to_project_tracks_file(self):
         """add_to_project should add file to project memory."""
-        self.memory.add_to_project("CODEY.md", "# Kuza Config\n")
-        self.assertTrue(self.memory.project.is_tracked("CODEY.md"))
+        self.memory.add_to_project("KUZA.md", "# Kuza Config\n")
+        self.assertTrue(self.memory.project.is_tracked("KUZA.md"))
 
     def test_add_to_project_protected(self):
         """add_to_project should mark files as protected."""

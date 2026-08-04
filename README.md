@@ -77,7 +77,7 @@ pip install -r requirements.txt
 export OPENROUTER_API_KEY="sk-or-your-key-here"
 
 # 3. Switch to the OpenRouter backend
-export CODEY_BACKEND="openrouter"
+export KUZA_BACKEND="openrouter"
 
 # 4. (Optional) Choose a model — default is qwen/qwen-2.5-coder-7b-instruct
 export OPENROUTER_MODEL="anthropic/claude-sonnet-4-5"
@@ -91,8 +91,8 @@ To make env vars permanent, add them to `~/.bashrc` and run `source ~/.bashrc`.
 Any model slug from [openrouter.ai/models](https://openrouter.ai/models) works. You can also mix backends — run the planner locally while routing coding calls to OpenRouter:
 
 ```bash
-export CODEY_BACKEND="openrouter"    # coding → OpenRouter
-export CODEY_BACKEND_P="local"       # planner → local 0.5B (port 8081)
+export KUZA_BACKEND="openrouter"    # coding → OpenRouter
+export KUZA_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 ```
 
 ---

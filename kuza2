@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# codey2 - Codey-v2 CLI Client
+# kuza2 - Kuza-v2 CLI Client
 #
 # If daemon is running, connects via Unix socket.
 # Otherwise, spawns direct mode.
 #
 
-CODEY_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DAEMON_DIR="$HOME/.codey-v2"
-PID_FILE="$DAEMON_DIR/codey-v2.pid"
-SOCKET_FILE="$DAEMON_DIR/codey-v2.sock"
+KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DAEMON_DIR="$HOME/.kuza-v2"
+PID_FILE="$DAEMON_DIR/kuza-v2.pid"
+SOCKET_FILE="$DAEMON_DIR/kuza-v2.sock"
 
 # Ensure daemon directory exists
 mkdir -p "$DAEMON_DIR"
@@ -111,7 +111,7 @@ if [ "$1" = "--daemon" ]; then
     
     cat > "$TMPSCRIPT" << PYEOF
 import sys
-sys.path.insert(0, '$CODEY_V2_DIR')
+sys.path.insert(0, '$KUZA_V2_DIR')
 from main import main
 main()
 PYEOF
@@ -181,7 +181,7 @@ try:
     health = send_command("health", {})
     
     # Format output
-    print("Codey-v2 Daemon Status")
+    print("Kuza-v2 Daemon Status")
     print("=" * 40)
     print(f"PID:            {health.get('pid', 'N/A')}")
     print(f"Status:         Running")
@@ -212,8 +212,8 @@ PYEOF
         rm -f "$TMPSCRIPT"
         exit $EXIT_CODE
     else
-        echo "Codey-v2 daemon is not running"
-        echo "Use 'codeyd2 start' to start the daemon"
+        echo "Kuza-v2 daemon is not running"
+        echo "Use 'kuzad2 start' to start the daemon"
         exit 1
     fi
 fi
@@ -222,15 +222,15 @@ fi
 # Check for task command
 if [ "$1" = "task" ]; then
     if ! is_daemon_running; then
-        echo "Codey-v2 daemon is not running"
+        echo "Kuza-v2 daemon is not running"
         exit 1
     fi
     
     shift  # Remove 'task' from args
     if [ $# -eq 0 ]; then
-        echo "Usage: codey2 task <id>|list"
-        echo "  codey2 task <id>   - Get task by ID"
-        echo "  codey2 task list   - List recent tasks"
+        echo "Usage: kuza2 task <id>|list"
+        echo "  kuza2 task <id>   - Get task by ID"
+        echo "  kuza2 task list   - List recent tasks"
         exit 1
     fi
     
@@ -319,13 +319,13 @@ fi
 # Check for cancel command
 if [ "$1" = "cancel" ]; then
     if ! is_daemon_running; then
-        echo "Codey-v2 daemon is not running"
+        echo "Kuza-v2 daemon is not running"
         exit 1
     fi
     
     shift  # Remove 'cancel' from args
     if [ $# -eq 0 ]; then
-        echo "Usage: codey2 cancel <task_id>"
+        echo "Usage: kuza2 cancel <task_id>"
         exit 1
     fi
     
@@ -380,7 +380,7 @@ done
 if [ "$BG_MODE" = "true" ]; then
     # Background mode: queue task in the running daemon
     if ! is_daemon_running; then
-        echo "Error: Daemon is not running. Start it with: codeyd2 start"
+        echo "Error: Daemon is not running. Start it with: kuzad2 start"
         exit 1
     fi
     YOLO="False"
@@ -395,16 +395,16 @@ if [ "$BG_MODE" = "true" ]; then
     send_to_daemon "${PROMPT_PARTS[*]}" "$YOLO"
 else
     # ── Start GUI server if not already running ────────────────────────────
-    GUI_PORT="${CODEY_GUI_PORT:-8888}"
+    GUI_PORT="${KUZA_GUI_PORT:-8888}"
     GUI_PID_FILE="$DAEMON_DIR/gui-server.pid"
     GUI_STARTED_HERE="false"
 
     if [ -f "$GUI_PID_FILE" ] && kill -0 "$(cat "$GUI_PID_FILE" 2>/dev/null)" 2>/dev/null; then
         echo "  GUI  →  http://localhost:${GUI_PORT}  (already running)"
-    elif [ -f "$CODEY_V2_DIR/gui/server.py" ]; then
+    elif [ -f "$KUZA_V2_DIR/gui/server.py" ]; then
         export PYTHONUNBUFFERED=1
-        export CODEY_GUI_PORT="$GUI_PORT"
-        python3 "$CODEY_V2_DIR/gui/server.py" &
+        export KUZA_GUI_PORT="$GUI_PORT"
+        python3 "$KUZA_V2_DIR/gui/server.py" &
         echo $! > "$GUI_PID_FILE"
         GUI_STARTED_HERE="true"
         echo "  GUI  →  http://localhost:${GUI_PORT}"
@@ -420,7 +420,7 @@ else
 
     cat > "$TMPSCRIPT" << PYEOF
 import sys
-sys.path.insert(0, '$CODEY_V2_DIR')
+sys.path.insert(0, '$KUZA_V2_DIR')
 from main import main
 main()
 PYEOF

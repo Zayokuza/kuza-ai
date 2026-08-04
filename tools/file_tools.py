@@ -29,7 +29,7 @@ BINARY_FILE_TYPES = {
 WRITE_PROTECTED = {
     ".gitignore",
     "README.md", "readme.md",
-    "CLAUDE.md", "CODEY.md",
+    "CLAUDE.md", "KUZA.md",
     "requirements.txt", "requirements-dev.txt",
     "setup.py", "setup.cfg", "pyproject.toml",
     "Makefile",

@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from utils.logger import console, info, success, error, warning, separator
-from utils.config import CODEY_VERSION
+from utils.config import KUZA_VERSION
 from core.loader_v2 import get_loader
 from core.inference_v2 import infer, was_last_streamed
 from core.agent import run_agent
@@ -19,7 +19,7 @@ BANNER = f"""[bold blue]
 ██╔═██╗ ██║   ██║ ███╔╝  ██╔══██║
 ██║  ██╗╚██████╔╝███████╗██║  ██║
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
-[/bold blue][dim]KUZA · v{CODEY_VERSION} · Local AI Assistant · Termux[/dim]
+[/bold blue][dim]KUZA · v{KUZA_VERSION} · Local AI Assistant · Termux[/dim]
 """
 
 def parse_args():
@@ -618,7 +618,7 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
         return True, history
 
     if low == "/memory":
-        from core.codeymd import find_kuzamd, read_kuzamd
+        from core.kuzamd import find_kuzamd, read_kuzamd
         path = find_kuzamd()
         if path:
             console.print(f"[bold]KUZA.md[/bold] ({path}):\n")
@@ -1064,8 +1064,8 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
 
 [bold]Environment variables:[/bold]
   ALLOW_SELF_MOD=1             Enable self-modification (alternative to flag)
-  CODEY_MODEL                  Override model path
-  CODEY_THREADS                Override thread count
+  KUZA_MODEL                  Override model path
+  KUZA_THREADS                Override thread count
         """)
         return True, history
 
@@ -1086,7 +1086,7 @@ def repl(initial_prompt=None, yolo=False, one_shot=False, preload=None, plan=Fal
         loader.load_primary()
 
     from core.project import detect_project
-    from core.codeymd import find_kuzamd
+    from core.kuzamd import find_kuzamd
     proj = detect_project()
     if proj["type"] != "unknown":
         info(f"Project: [bold]{proj['type']}[/bold] · {os.getcwd()}")
@@ -1241,7 +1241,7 @@ def main():
     args = parse_args()
 
     if args.version:
-        print(f"Kuza v{CODEY_VERSION}")
+        print(f"Kuza v{KUZA_VERSION}")
         sys.exit(0)
 
     apply_overrides(args)

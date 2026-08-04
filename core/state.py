@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional, Any, List, Dict
 from threading import Lock
 
-from utils.config import CODEY_DIR
+from utils.config import KUZA_DIR
 
 # State directory and database path (Kuza-v2 specific)
 STATE_DIR = Path.home() / ".kuza-v2"

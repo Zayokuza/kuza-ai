@@ -62,13 +62,13 @@ def _request_daemon_plan(prompt: str):
         if not is_daemon_running():
             return None
         try:
-            from utils.config import is_remote_planner_backend, CODEY_PLANNER_BACKEND
+            from utils.config import is_remote_planner_backend, KUZA_PLANNER_BACKEND
             from utils.config import OPENROUTER_PLANNER_MODEL, UNLIMITEDCLAUDE_PLANNER_MODEL
             if is_remote_planner_backend():
                 pm = (UNLIMITEDCLAUDE_PLANNER_MODEL
-                      if CODEY_PLANNER_BACKEND == "unlimitedclaude"
+                      if KUZA_PLANNER_BACKEND == "unlimitedclaude"
                       else OPENROUTER_PLANNER_MODEL)
-                info(f"Requesting plan from {CODEY_PLANNER_BACKEND} planner ({pm})...")
+                info(f"Requesting plan from {KUZA_PLANNER_BACKEND} planner ({pm})...")
             else:
                 info("Requesting plan from 0.5B planner...")
         except Exception:

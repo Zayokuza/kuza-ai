@@ -150,13 +150,13 @@ Any model path or port can be overridden without editing `config.py`:
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `CODEY_MODEL` | `~/models/qwen2.5-coder-7b/qwen2.5-coder-7b-instruct-q4_k_m.gguf` | |
-| `CODEY_EMBED_MODEL` | `~/models/nomic-embed/nomic-embed-text-v1.5.Q4_K_M.gguf` | |
-| `CODEY_PLANNER_MODEL` | `~/models/qwen2.5-0.5b/qwen2.5-0.5b-instruct-q8_0.gguf` | |
-| `CODEY_EMBED_PORT` | `8082` | |
-| `CODEY_PLANND_PORT` | `8081` | |
-| `CODEY_LLAMA_SERVER` | Auto-detected from PATH or `~/llama.cpp/build/bin/llama-server` | |
-| `CODEY_7B_MMAP` | `1` (enabled) | |
-| `CODEY_7B_MLOCK` | `0` (disabled) | |
-| `CODEY_BACKEND` | `local` | Coder backend: `local`, `openrouter`, `unlimitedclaude` |
-| `CODEY_BACKEND_P` | `local` | Planner backend (independent of coder backend) |
+| `KUZA_MODEL` | `~/models/qwen2.5-coder-7b/qwen2.5-coder-7b-instruct-q4_k_m.gguf` | |
+| `KUZA_EMBED_MODEL` | `~/models/nomic-embed/nomic-embed-text-v1.5.Q4_K_M.gguf` | |
+| `KUZA_PLANNER_MODEL` | `~/models/qwen2.5-0.5b/qwen2.5-0.5b-instruct-q8_0.gguf` | |
+| `KUZA_EMBED_PORT` | `8082` | |
+| `KUZA_PLANND_PORT` | `8081` | |
+| `KUZA_LLAMA_SERVER` | Auto-detected from PATH or `~/llama.cpp/build/bin/llama-server` | |
+| `KUZA_7B_MMAP` | `1` (enabled) | |
+| `KUZA_7B_MLOCK` | `0` (disabled) | |
+| `KUZA_BACKEND` | `local` | Coder backend: `local`, `openrouter`, `unlimitedclaude` |
+| `KUZA_BACKEND_P` | `local` | Planner backend (independent of coder backend) |

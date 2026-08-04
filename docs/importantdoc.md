@@ -178,7 +178,7 @@ core/agent.py: run_agent()
     |                            ↓
     |                    Priority layers assembled:
     |                      p=0 (required): base SYSTEM_PROMPT
-    |                      p=0 (required): CODEY.md
+    |                      p=0 (required): KUZA.md
     |                      p=1: user notes (core/notes.py)
     |                      p=2: repo map (core/project.py)
     |                      p=3: RAG retrieval (core/retrieval.py)
@@ -225,7 +225,7 @@ Total context: 32768 tokens
 | Layer | Budget |
 |---|---|
 | System prompt (base) | ~400 tokens |
-| CODEY.md | ~300 tokens |
+| KUZA.md | ~300 tokens |
 | User notes | ~100 tokens |
 | Repo map | ~300 tokens (1200 chars) |
 | RAG retrieval | ~150 tokens (600 chars) |

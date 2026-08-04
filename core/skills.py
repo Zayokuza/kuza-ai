@@ -21,9 +21,9 @@ Usage:
 """
 
 from pathlib import Path
-from utils.config import CODEY_DIR
+from utils.config import KUZA_DIR
 
-SKILL_DIR = CODEY_DIR / "knowledge" / "skills"
+SKILL_DIR = KUZA_DIR / "knowledge" / "skills"
 
 
 def load_relevant_skills(user_message: str, budget_chars: int = 800) -> str:

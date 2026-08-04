@@ -5,10 +5,10 @@
 ./LICENSE
 ./README.md
 ./TODO.md
-./assets/codey-mascot.png
+./assets/kuza-mascot.png
 ./assets/demo-fibonacci.gif
-./codey2
-./codeyd2
+./kuza2
+./kuzad2
 ./core/__init__.py
 ./core/agent.py
 ./core/agent.py.before-fenced-tool-fix
@@ -18,7 +18,7 @@
 ./core/background.py
 ./core/captcha.py
 ./core/checkpoint.py
-./core/codeymd.py
+./core/kuzamd.py
 ./core/context.py
 ./core/daemon.py
 ./core/daemon_config.py
@@ -71,7 +71,7 @@
 ./core/voice.py
 ./docs/TODO2.md
 ./docs/architecture.md
-./docs/codey-v2-tools-embed.md
+./docs/kuza-v2-tools-embed.md
 ./docs/commands.md
 ./docs/configuration.md
 ./docs/fine-tuning-kaggle.md
@@ -132,7 +132,7 @@
 ./tests/security/test_shell_injection.py
 ./tests/test_agent_parsing.py
 ./tests/test_breadth.py
-./tests/test_codeyignore.py
+./tests/test_kuzaignore.py
 ./tests/test_finetune.py
 ./tests/test_hallucination.py
 ./tests/test_hybrid_inference.py

@@ -16,7 +16,7 @@
 
 set -e
 
-CODEY_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DAEMON_DIR="$HOME/.kuza-v2"
 
 # Main daemon files
@@ -57,7 +57,7 @@ show_status() {
     # Check model server port and print model status via Python
     python3 - <<PYEOF
 import sys, urllib.request
-sys.path.insert(0, "$CODEY_V2_DIR")
+sys.path.insert(0, "$KUZA_V2_DIR")
 
 def port_healthy(port):
     try:
@@ -81,7 +81,7 @@ except Exception:
 
 try:
     from utils.config import (
-        CODEY_BACKEND as _cb, CODEY_PLANNER_BACKEND as _pb,
+        KUZA_BACKEND as _cb, KUZA_PLANNER_BACKEND as _pb,
         is_remote_backend as _is_remote,
         is_remote_planner_backend as _is_remote_planner,
     )
@@ -146,7 +146,7 @@ start_daemon() {
     echo "Starting Kuza-v2 daemon..."
 
     # Clear stale Python bytecode cache so code changes take effect immediately
-    find "$CODEY_V2_DIR" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+    find "$KUZA_V2_DIR" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
     # Kill any orphaned llama-server on port 8080 from a previous session
     pkill -9 -f "llama-server.*8080" 2>/dev/null || true
@@ -160,9 +160,9 @@ start_daemon() {
 import sys
 import os
 
-CODEY_V2_DIR = "$CODEY_V2_DIR"
-sys.path.insert(0, CODEY_V2_DIR)
-os.environ.setdefault("CODEY_DIR", CODEY_V2_DIR)
+KUZA_V2_DIR = "$KUZA_V2_DIR"
+sys.path.insert(0, KUZA_V2_DIR)
+os.environ.setdefault("KUZA_DIR", KUZA_V2_DIR)
 
 from core.daemon import main
 main()
@@ -226,8 +226,8 @@ stop_daemon() {
 
 start_plannd() {
     # Skip when planner backend is remote — no local 0.5B server needed.
-    # CODEY_BACKEND_P takes precedence; falls back to CODEY_BACKEND.
-    _pb="${CODEY_BACKEND_P:-${CODEY_BACKEND:-local}}"
+    # KUZA_BACKEND_P takes precedence; falls back to KUZA_BACKEND.
+    _pb="${KUZA_BACKEND_P:-${KUZA_BACKEND:-local}}"
     if [ "$_pb" = "openrouter" ] || [ "$_pb" = "unlimitedclaude" ]; then
         echo "Planner backend: ${_pb} — skipping 0.5B planner startup"
         return 0
@@ -251,7 +251,7 @@ start_plannd() {
 
     # Resolve model path and llama-server binary from config
     PLANNER_MODEL=$(python3 -c "
-import sys; sys.path.insert(0, '$CODEY_V2_DIR')
+import sys; sys.path.insert(0, '$KUZA_V2_DIR')
 from utils.config import PLANNER_MODEL_PATH, LLAMA_SERVER_BIN
 print(PLANNER_MODEL_PATH)
 print(LLAMA_SERVER_BIN)
@@ -386,7 +386,7 @@ case "${1:-status}" in
 
         cat > "$TMPSCRIPT" << PYEOF
 import sys
-sys.path.insert(0, '$CODEY_V2_DIR')
+sys.path.insert(0, '$KUZA_V2_DIR')
 from core.daemon_config import create_default_config
 path = create_default_config()
 print(f"Default config created at: {path}")

@@ -4,7 +4,7 @@ import time
 from core.inference_v2 import infer
 from core.context import build_file_context_block, auto_load_from_prompt, list_loaded
 from core.project import get_project_summary
-from core.codeymd import read_kuzamd, find_kuzamd
+from core.kuzamd import read_kuzamd, find_kuzamd
 from core.summarizer import should_summarize, summarize_history
 from core.tokens import get_context_usage, usage_bar
 from core.learning import get_learning_manager

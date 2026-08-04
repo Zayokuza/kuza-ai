@@ -10,7 +10,7 @@ Provides:
   - Pre-write syntax gate: blocks writes with broken Python syntax
 
 Linter preference order: ruff > flake8 > mypy > ast (syntax-only)
-User can override by setting CODEY_LINTER env var to "ruff", "flake8", etc.
+User can override by setting KUZA_LINTER env var to "ruff", "flake8", etc.
 """
 
 import ast
@@ -116,7 +116,7 @@ def run_linter(filepath: str, content: str = None) -> Tuple[List[LintIssue], str
     """
     Run the best available linter on a Python file.
 
-    Priority: env CODEY_LINTER override → ruff → flake8 → ast syntax-only.
+    Priority: env KUZA_LINTER override → ruff → flake8 → ast syntax-only.
 
     Args:
         filepath: Path to the .py file.
@@ -131,7 +131,7 @@ def run_linter(filepath: str, content: str = None) -> Tuple[List[LintIssue], str
         return [], "none"
 
     # Respect user override
-    preferred = os.environ.get("CODEY_LINTER", "").lower()
+    preferred = os.environ.get("KUZA_LINTER", "").lower()
 
     def _try_ruff():
         try:

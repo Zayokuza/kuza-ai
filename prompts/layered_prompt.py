@@ -23,7 +23,7 @@ lower-priority blocks are skipped.
 Priority map:
   0 — Core identity (SYSTEM_PROMPT) ← required, never evicted
   1 — User preferences
-  2 — Project memory / CODEY.md + critique summary (for refine)
+  2 — Project memory / KUZA.md + critique summary (for refine)
   3 — Repo map + retrieved knowledge (RAG / NEED_DOCS)
   4 — Loaded file context
 
@@ -163,9 +163,9 @@ def _get_preferences_block() -> str:
 
 
 def _get_project_block() -> str:
-    """Return CODEY.md block, or project-summary block, or empty string."""
+    """Return KUZA.md block, or project-summary block, or empty string."""
     try:
-        from core.codeymd import read_kuzamd
+        from core.kuzamd import read_kuzamd
         kuzamd = read_kuzamd()
         if kuzamd:
             return "## Project Memory\n" + kuzamd

@@ -2,9 +2,9 @@ import os
 import shutil
 from pathlib import Path
 
-CODEY_DIR = Path(os.environ.get("CODEY_DIR", Path.home() / "kuza-v2"))
+KUZA_DIR = Path(os.environ.get("KUZA_DIR", Path.home() / "kuza-v2"))
 MODEL_PATH = Path(os.environ.get(
-    "CODEY_MODEL",
+    "KUZA_MODEL",
     Path.home() / "models" / "qwen2.5-coder-7b" / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
 ))
 
@@ -13,15 +13,15 @@ MODEL_PATH = Path(os.environ.get(
 # Runs on port 8082, separate from the 7B generation server on 8080.
 # ~50 ms/chunk, covers 92.6% of chunks; rest use BM25 keyword fallback.
 EMBED_MODEL_PATH = Path(os.environ.get(
-    "CODEY_EMBED_MODEL",
+    "KUZA_EMBED_MODEL",
     Path.home() / "models" / "nomic-embed" / "nomic-embed-text-v1.5.Q4_K_M.gguf"
 ))
-EMBED_SERVER_PORT = int(os.environ.get("CODEY_EMBED_PORT", "8082"))
+EMBED_SERVER_PORT = int(os.environ.get("KUZA_EMBED_PORT", "8082"))
 
 # Detection of llama-server binary and library path
 _HOME_LLAMA = Path.home() / "llama.cpp" / "build" / "bin"
-LLAMA_SERVER_BIN = os.environ.get("CODEY_LLAMA_SERVER") or shutil.which("llama-server") or str(_HOME_LLAMA / "llama-server")
-LLAMA_LIB = os.environ.get("CODEY_LLAMA_LIB") or str(_HOME_LLAMA)
+LLAMA_SERVER_BIN = os.environ.get("KUZA_LLAMA_SERVER") or shutil.which("llama-server") or str(_HOME_LLAMA / "llama-server")
+LLAMA_LIB = os.environ.get("KUZA_LLAMA_LIB") or str(_HOME_LLAMA)
 
 MODEL_CONFIG = {
     "n_ctx":          32768,
@@ -75,11 +75,11 @@ WORKSPACE_ROOT = Path(os.getcwd()).resolve()
 
 # Recursive Inference — Phase 2 (v2.6.2)
 # Controls the draft → critique → refine self-improvement loop.
-# CODEY_RECURSIVE=1  — force on   (even for remote backends)
-# CODEY_RECURSIVE=0  — force off  (single-pass inference)
+# KUZA_RECURSIVE=1  — force on   (even for remote backends)
+# KUZA_RECURSIVE=0  — force off  (single-pass inference)
 # unset              — auto: on for local, off for remote (remote models need fewer retries)
-_recursive_env     = os.environ.get("CODEY_RECURSIVE", "").strip()
-_recursive_backend = os.environ.get("CODEY_BACKEND", "local").lower()
+_recursive_env     = os.environ.get("KUZA_RECURSIVE", "").strip()
+_recursive_backend = os.environ.get("KUZA_BACKEND", "local").lower()
 _recursive_default = _recursive_backend not in ("openrouter", "unlimitedclaude")
 _recursive_enabled = (
     True  if _recursive_env == "1" else
@@ -108,7 +108,7 @@ RECURSIVE_CONFIG = {
 # Knowledge Base + Retrieval — Phase 1 (v2.6.1)
 RETRIEVAL_CONFIG = {
     "enabled":            True,
-    "kb_path":            str(CODEY_DIR / "knowledge"),
+    "kb_path":            str(KUZA_DIR / "knowledge"),
     "semantic_search":    True,         # prefer embeddings when index exists
     "max_chunks":         4,            # max results per retrieval query
     "budget_chars":       2400,         # max chars of retrieved content (~600 tokens)
@@ -120,34 +120,34 @@ RETRIEVAL_CONFIG = {
                                         # the KB has no specifically relevant material)
 }
 
-CODEY_VERSION = "2.0.0"
-CODEY_NAME = "KUZA"
+KUZA_VERSION = "2.0.0"
+KUZA_NAME = "KUZA"
 
 # ── OpenRouter backend (optional) ────────────────────────────────────────────
 # ── Remote backend selection ─────────────────────────────────────────────────
-# Set CODEY_BACKEND to route inference to a remote API instead of local models.
+# Set KUZA_BACKEND to route inference to a remote API instead of local models.
 # The embed model (port 8082) always runs locally regardless of backend.
 #
 # Values:
 #   local           — default: all three models run on-device
 #   openrouter      — OpenRouter API (openrouter.ai)
 #   unlimitedclaude — UnlimitedClaude API (unlimitedclaude.com)
-CODEY_BACKEND = os.environ.get("CODEY_BACKEND", "local").lower()
+KUZA_BACKEND = os.environ.get("KUZA_BACKEND", "local").lower()
 
 # Planner/summarizer backend — independent of the coder backend.
-# Defaults to CODEY_BACKEND so existing setups need no change.
-# Set CODEY_BACKEND_P to mix backends, e.g.:
-#   export CODEY_BACKEND=openrouter        # coder → OpenRouter
-#   export CODEY_BACKEND_P=unlimitedclaude # planner → UnlimitedClaude
-#   export CODEY_BACKEND_P=local           # planner → local 0.5B (port 8081)
-CODEY_PLANNER_BACKEND = os.environ.get("CODEY_BACKEND_P", CODEY_BACKEND).lower()
+# Defaults to KUZA_BACKEND so existing setups need no change.
+# Set KUZA_BACKEND_P to mix backends, e.g.:
+#   export KUZA_BACKEND=openrouter        # coder → OpenRouter
+#   export KUZA_BACKEND_P=unlimitedclaude # planner → UnlimitedClaude
+#   export KUZA_BACKEND_P=local           # planner → local 0.5B (port 8081)
+KUZA_PLANNER_BACKEND = os.environ.get("KUZA_BACKEND_P", KUZA_BACKEND).lower()
 
 # Helpers — True for any backend that uses a remote OpenAI-compatible API
 def is_remote_backend() -> bool:
-    return CODEY_BACKEND in ("openrouter", "unlimitedclaude")
+    return KUZA_BACKEND in ("openrouter", "unlimitedclaude")
 
 def is_remote_planner_backend() -> bool:
-    return CODEY_PLANNER_BACKEND in ("openrouter", "unlimitedclaude")
+    return KUZA_PLANNER_BACKEND in ("openrouter", "unlimitedclaude")
 
 # ── OpenRouter ────────────────────────────────────────────────────────────────
 # OPENROUTER_API_KEY    — sk-or-... key from openrouter.ai/keys
@@ -174,19 +174,19 @@ UNLIMITEDCLAUDE_BASE_URL      = os.environ.get("UNLIMITEDCLAUDE_BASE_URL", "http
 # Qwen2.5-0.5B runs as a dedicated planning + summarization model on port 8081,
 # entirely separate from the 7B agent server on port 8080.
 PLANNER_MODEL_PATH = Path(os.environ.get(
-    "CODEY_PLANNER_MODEL",
+    "KUZA_PLANNER_MODEL",
     Path.home() / "models" / "qwen2.5-0.5b" / "planner-kuza.gguf"
 ))
 SECONDARY_MODEL_PATH = PLANNER_MODEL_PATH  # legacy compatibility
-PLANND_SERVER_PORT = int(os.environ.get("CODEY_PLANND_PORT", "8081"))
+PLANND_SERVER_PORT = int(os.environ.get("KUZA_PLANND_PORT", "8081"))
 
 # ── 7B model memory-mapping settings — Change 2 ─────────────────────────────
 # QWEN_7B_MMAP=True  → weights are mmap'd from disk; only touched pages load into RAM.
 # QWEN_7B_MLOCK=False → OS can page weights out under memory pressure (default).
 # These settings apply ONLY to the Qwen 7B model.
 # The 0.5B summarizer model is unaffected.
-QWEN_7B_MMAP  = os.environ.get("CODEY_7B_MMAP",  "1") != "0"   # default: True
-QWEN_7B_MLOCK = os.environ.get("CODEY_7B_MLOCK", "0") != "0"   # default: False
+QWEN_7B_MMAP  = os.environ.get("KUZA_7B_MMAP",  "1") != "0"   # default: True
+QWEN_7B_MLOCK = os.environ.get("KUZA_7B_MLOCK", "0") != "0"   # default: False
 
 # ── Planner settings ─────────────────────────────────────────────────────────
 # Temperature 0.2 keeps plans focused; 768 gives room for 5 detailed steps.

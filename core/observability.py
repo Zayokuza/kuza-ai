@@ -26,7 +26,7 @@ except ImportError:
     HAS_PSUTIL = False
 
 from utils.logger import info, warning
-from utils.config import MODEL_CONFIG, CODEY_VERSION
+from utils.config import MODEL_CONFIG, KUZA_VERSION
 from core.state import get_state_store
 
 
@@ -181,7 +181,7 @@ class State:
     def get_full_status(self) -> Dict:
         """Get complete observability status."""
         return {
-            "version": CODEY_VERSION,
+            "version": KUZA_VERSION,
             "daemon": {
                 "pid": self.daemon_pid,
                 "uptime_seconds": self.uptime,

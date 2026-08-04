@@ -20,7 +20,7 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 from utils.logger import info, warning, error, success
-from utils.config import CODE_DIR, CODEY_DIR
+from utils.config import CODE_DIR, KUZA_DIR
 from core.state import get_state_store
 
 

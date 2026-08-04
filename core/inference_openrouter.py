@@ -13,7 +13,7 @@ Backends:
     unlimitedclaude — unlimitedclaude.com  (UNLIMITEDCLAUDE_API_KEY / UNLIMITEDCLAUDE_MODEL)
 
 Activation:
-    export CODEY_BACKEND=openrouter        # or unlimitedclaude
+    export KUZA_BACKEND=openrouter        # or unlimitedclaude
     export OPENROUTER_API_KEY=sk-or-...
     export OPENROUTER_MODEL=qwen/qwen-2.5-coder-7b-instruct
 """
@@ -217,14 +217,14 @@ def get_openrouter_backend() -> OpenRouterBackend:
 def get_remote_backend(backend_name: str = None) -> OpenRouterBackend:
     """
     Return a backend singleton configured for the given backend name.
-    Defaults to the active CODEY_BACKEND setting.
+    Defaults to the active KUZA_BACKEND setting.
     """
     from utils.config import (
-        CODEY_BACKEND,
+        KUZA_BACKEND,
         OPENROUTER_API_KEY, OPENROUTER_MODEL, OPENROUTER_BASE_URL,
         UNLIMITEDCLAUDE_API_KEY, UNLIMITEDCLAUDE_MODEL, UNLIMITEDCLAUDE_BASE_URL,
     )
-    name = backend_name or CODEY_BACKEND
+    name = backend_name or KUZA_BACKEND
 
     if name not in _backends:
         if name == "unlimitedclaude":

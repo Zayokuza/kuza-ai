@@ -12,8 +12,8 @@
 
 set -euo pipefail
 
-CODEY_DIR="${CODEY_DIR:-$HOME/kuza-v2}"
-SKILL_DIR="$CODEY_DIR/knowledge/skills"
+KUZA_DIR="${KUZA_DIR:-$HOME/kuza-v2}"
+SKILL_DIR="$KUZA_DIR/knowledge/skills"
 NO_SEMANTIC=0
 
 # Parse flags
@@ -29,14 +29,14 @@ done
 
 # ── Create directory structure ────────────────────────────────────────────────
 echo "=== Kuza-v2 Knowledge Base Setup ==="
-echo "KB root: $CODEY_DIR/knowledge"
+echo "KB root: $KUZA_DIR/knowledge"
 echo ""
 
 mkdir -p "$SKILL_DIR"
-mkdir -p "$CODEY_DIR/knowledge/docs"
-mkdir -p "$CODEY_DIR/knowledge/apis"
-mkdir -p "$CODEY_DIR/knowledge/patterns"
-mkdir -p "$CODEY_DIR/knowledge/embeddings"
+mkdir -p "$KUZA_DIR/knowledge/docs"
+mkdir -p "$KUZA_DIR/knowledge/apis"
+mkdir -p "$KUZA_DIR/knowledge/patterns"
+mkdir -p "$KUZA_DIR/knowledge/embeddings"
 
 echo "[1/4] Cloning skill repositories..."
 
@@ -98,11 +98,11 @@ echo "[2/4] Indexing skill repositories into knowledge base..."
 
 python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
+sys.path.insert(0, os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")))
 
 from tools.kb_scraper import index_directory
 
-skill_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "skills")
+skill_dir = os.path.join(os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "skills")
 
 repos = [
     ("awesome-claude-skills",          (".md", ".txt", ".yaml", ".yml", ".json")),
@@ -134,13 +134,13 @@ PYEOF
 echo ""
 echo "[3/4] Indexing project knowledge docs (knowledge/docs/)..."
 
-DOCS_DIR="$CODEY_DIR/knowledge/docs"
+DOCS_DIR="$KUZA_DIR/knowledge/docs"
 if [ -d "$DOCS_DIR" ] && [ "$(ls -A "$DOCS_DIR" 2>/dev/null)" ]; then
     python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
+sys.path.insert(0, os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")))
 from tools.kb_scraper import index_directory
-docs_dir = os.path.join(os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "docs")
+docs_dir = os.path.join(os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")), "knowledge", "docs")
 index_directory(docs_dir, category="docs")
 PYEOF
 else
@@ -153,7 +153,7 @@ if [ "$NO_SEMANTIC" -eq 0 ]; then
     echo "[4/4] Building semantic index..."
     python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
+sys.path.insert(0, os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")))
 try:
     from tools.kb_semantic import (
         build_semantic_index, check_llama_embeddings,
@@ -198,7 +198,7 @@ echo ""
 # Print final stats
 python3 - <<'PYEOF'
 import sys, os
-sys.path.insert(0, os.environ.get("CODEY_DIR", os.path.expanduser("~/kuza-v2")))
+sys.path.insert(0, os.environ.get("KUZA_DIR", os.path.expanduser("~/kuza-v2")))
 try:
     from tools.kb_semantic import index_stats, HAS_SENTENCE_TRANSFORMERS
     s = index_stats()

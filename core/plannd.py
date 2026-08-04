@@ -152,19 +152,19 @@ def filter_tool_steps(steps: List[str]) -> List[str]:
     return kept if len(kept) > 1 else steps[:2]  # fallback: keep first two
 
 
-# ── Planning via 0.5B on port 8081 (or remote when CODEY_BACKEND_P is set) ──
+# ── Planning via 0.5B on port 8081 (or remote when KUZA_BACKEND_P is set) ──
 
 def _get_plan_remote(prompt: str) -> Optional[List[str]]:
     """Route planning through the active planner backend (OpenRouter or UnlimitedClaude)."""
     try:
         from utils.config import (
-            PLANNER_TEMPERATURE, PLANNER_MAX_TOKENS, CODEY_PLANNER_BACKEND,
+            PLANNER_TEMPERATURE, PLANNER_MAX_TOKENS, KUZA_PLANNER_BACKEND,
             OPENROUTER_PLANNER_MODEL, OPENROUTER_BASE_URL, OPENROUTER_API_KEY,
             UNLIMITEDCLAUDE_PLANNER_MODEL, UNLIMITEDCLAUDE_BASE_URL, UNLIMITEDCLAUDE_API_KEY,
         )
         from utils.logger import info, warning
 
-        if CODEY_PLANNER_BACKEND == "unlimitedclaude":
+        if KUZA_PLANNER_BACKEND == "unlimitedclaude":
             planner_model = UNLIMITEDCLAUDE_PLANNER_MODEL
             base_url      = UNLIMITEDCLAUDE_BASE_URL.rstrip("/")
             api_key       = UNLIMITEDCLAUDE_API_KEY
@@ -244,7 +244,7 @@ def get_plan(prompt: str) -> Optional[List[str]]:
     Break *prompt* into a numbered plan.
 
     Uses the local 0.5B on port 8081 by default.
-    When CODEY_BACKEND_P (or CODEY_BACKEND) is a remote backend, routes
+    When KUZA_BACKEND_P (or KUZA_BACKEND) is a remote backend, routes
     there instead so the 0.5B server does not need to be running.
     """
     try:

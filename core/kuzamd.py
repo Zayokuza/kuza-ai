@@ -2,13 +2,13 @@ import os
 from pathlib import Path
 from utils.logger import success, info
 
-CODEYMD_FILENAME = "KUZA.md"
+KUZAMD_FILENAME = "KUZA.md"
 _kuzamd_cache: dict = {}  # tracks which paths we've already logged
 
 def find_kuzamd(start: str = None) -> Path | None:
     start = Path(start or os.getcwd())
     for directory in [start] + list(start.parents)[:2]:
-        candidate = directory / CODEYMD_FILENAME
+        candidate = directory / KUZAMD_FILENAME
         if candidate.exists():
             return candidate
     return None
@@ -30,7 +30,7 @@ def read_kuzamd(start: str = None) -> str:
 
 def write_kuzamd(content: str, directory: str = None) -> str:
     directory = Path(directory or os.getcwd())
-    path = directory / CODEYMD_FILENAME
+    path = directory / KUZAMD_FILENAME
     try:
         path.write_text(content, encoding="utf-8")
         return str(path)

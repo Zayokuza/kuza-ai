@@ -69,7 +69,7 @@ Conversation context is managed across four tiers:
               │
 ┌─────────────────────────────────────────┐
 │  Project Memory (persistent)            │
-│  CODEY.md, README.md                    │
+│  KUZA.md, README.md                    │
 │  Never evicted — loaded at daemon start │
 └─────────────────────────────────────────┘
               │
@@ -107,7 +107,7 @@ This table covers exactly what Kuza saves, where it lives, and how long it lasts
 | What | Where | Survives restart? | Expires? | How to clear |
 |------|-------|------------------|----------|--------------|
 | Last 6 turns of conversation | `~/.kuza_sessions/<project-hash>.json` | Yes | After 2 hours of inactivity | `/clear` in-chat or `kuza2 --clear-session` |
-| Project memory (`CODEY.md`) | `<project>/CODEY.md` | Yes | Never | Edit or delete the file manually |
+| Project memory (`KUZA.md`) | `<project>/KUZA.md` | Yes | Never | Edit or delete the file manually |
 | Action log (every tool call) | `~/.kuza-v2/state.db` | Yes | Never (append-only) | Delete `~/.kuza-v2/state.db` |
 | Open files / working context | In-memory only | No | On exit | — |
 | File undo history | In-memory only | No | On exit | — |
@@ -117,11 +117,11 @@ This table covers exactly what Kuza saves, where it lives, and how long it lasts
 
 - **Does not learn from your conversations.** The RAG index only contains what you explicitly load with `/load`, `/read`, or the knowledge base pipeline — not anything you've said or typed.
 - **Does not send data anywhere.** All state is local. The only exception is peer CLI escalation (Claude Code, Gemini CLI, Qwen CLI), which requires explicit confirmation before any files are shared.
-- **Does not auto-recover deep context on large projects.** The session window is 6 turns (expires in 2 hours). For long-running projects, `CODEY.md` is the primary source of persistent context — if it is sparse or missing, Kuza starts each session with limited knowledge of your project.
+- **Does not auto-recover deep context on large projects.** The session window is 6 turns (expires in 2 hours). For long-running projects, `KUZA.md` is the primary source of persistent context — if it is sparse or missing, Kuza starts each session with limited knowledge of your project.
 
 ### Practical advice for larger projects
 
-1. Run `/init` at the start of a project to generate `CODEY.md`. Keep it updated as the project grows — it is the single most important thing for cross-session accuracy.
+1. Run `/init` at the start of a project to generate `KUZA.md`. Keep it updated as the project grows — it is the single most important thing for cross-session accuracy.
 2. Use `--no-resume` if you want to start a session completely fresh without the last 6 turns being loaded.
 3. The action log (`state.db`) grows indefinitely. It is not used for inference — only for observability (`/history`). Safe to delete if it grows large.
 
@@ -220,7 +220,7 @@ memory = get_memory()
 memory.add_to_working("file.py", content, tokens)
 memory.clear_working()
 
-memory.add_to_project("CODEY.md", content, is_protected=True)
+memory.add_to_project("KUZA.md", content, is_protected=True)
 
 memory.store_in_longterm("file.py", content)
 results = memory.search("authentication code", limit=5)

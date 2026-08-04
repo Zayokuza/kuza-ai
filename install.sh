@@ -29,7 +29,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-CODEY_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LLAMA_CPP_DIR="$HOME/llama.cpp"
 MODELS_DIR="$HOME/models"
 PRIMARY_MODEL_DIR="$MODELS_DIR/qwen2.5-coder-7b"
@@ -107,7 +107,7 @@ install_python_deps() {
         pip3 install --upgrade pip
     fi
 
-    cd "$CODEY_V2_DIR"
+    cd "$KUZA_V2_DIR"
 
     # Install only what's needed for the core agent + GUI
     # (pipeline/training deps are optional — see requirements.txt for full list)
@@ -132,7 +132,7 @@ install_python_deps() {
         read -p "  Install pipeline/training extras? (large download, optional) [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            pip3 install -r "$CODEY_V2_DIR/requirements.txt" \
+            pip3 install -r "$KUZA_V2_DIR/requirements.txt" \
                 || print_warning "Some pipeline packages may have failed (normal on Termux)"
         fi
     fi
@@ -269,10 +269,10 @@ download_models() {
 # ── 6. Executables & PATH ─────────────────────────────────────────────────────
 make_executable() {
     print_step "Permissions"
-    chmod +x "$CODEY_V2_DIR/kuza2"
-    chmod +x "$CODEY_V2_DIR/kuzad2"
-    chmod +x "$CODEY_V2_DIR/install.sh"
-    [ -f "$CODEY_V2_DIR/gui/start.sh" ] && chmod +x "$CODEY_V2_DIR/gui/start.sh"
+    chmod +x "$KUZA_V2_DIR/kuza2"
+    chmod +x "$KUZA_V2_DIR/kuzad2"
+    chmod +x "$KUZA_V2_DIR/install.sh"
+    [ -f "$KUZA_V2_DIR/gui/start.sh" ] && chmod +x "$KUZA_V2_DIR/gui/start.sh"
     print_success "Executable bits set"
 }
 
@@ -296,12 +296,12 @@ setup_path() {
         {
             echo ""
             echo "# Kuza-v2"
-            echo "export PATH=\"$CODEY_V2_DIR:\$PATH\""
+            echo "export PATH=\"$KUZA_V2_DIR:\$PATH\""
         } >> "$SHELL_CONFIG"
-        print_success "Added $CODEY_V2_DIR to PATH in $SHELL_CONFIG"
+        print_success "Added $KUZA_V2_DIR to PATH in $SHELL_CONFIG"
     fi
 
-    export PATH="$CODEY_V2_DIR:$PATH"
+    export PATH="$KUZA_V2_DIR:$PATH"
     # shellcheck source=/dev/null
     source "$SHELL_CONFIG" 2>/dev/null || true
 }
@@ -339,7 +339,7 @@ print_completion() {
     echo
     echo -e "${GREEN}${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║            CODEY-V2 — Installation Complete                  ║"
+    echo "║            KUZA-V2 — Installation Complete                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -358,8 +358,8 @@ print_completion() {
     echo -e "${CYAN}${BOLD}BACKEND SWITCHING  (local models are the default — no key needed)${NC}"
     echo
     echo -e "  Two independent backends:"
-    echo -e "    ${BOLD}CODEY_BACKEND${NC}   — 7B coding agent  (ports 8080)"
-    echo -e "    ${BOLD}CODEY_BACKEND_P${NC} — 0.5B planner     (port 8081, defaults to CODEY_BACKEND)"
+    echo -e "    ${BOLD}KUZA_BACKEND${NC}   — 7B coding agent  (ports 8080)"
+    echo -e "    ${BOLD}KUZA_BACKEND_P${NC} — 0.5B planner     (port 8081, defaults to KUZA_BACKEND)"
     echo -e "  Each can be: ${BOLD}local${NC} | ${BOLD}openrouter${NC} | ${BOLD}unlimitedclaude${NC}"
     echo
     echo -e "  ── ${BOLD}OpenRouter${NC} ─────────────────────────────────────────────────"
@@ -367,7 +367,7 @@ print_completion() {
     echo -e "    ${BLUE}export OPENROUTER_API_KEY=\"sk-or-...\"${NC}"
     echo
     echo -e "    # Route both agent and planner to OpenRouter:"
-    echo -e "    ${BLUE}export CODEY_BACKEND=\"openrouter\"${NC}"
+    echo -e "    ${BLUE}export KUZA_BACKEND=\"openrouter\"${NC}"
     echo
     echo -e "    # Override the 7B coding model (default: qwen/qwen-2.5-coder-7b-instruct):"
     echo -e "    ${BLUE}export OPENROUTER_MODEL=\"anthropic/claude-sonnet-4-5\"${NC}"
@@ -379,7 +379,7 @@ print_completion() {
     echo -e "    ${BLUE}export UNLIMITEDCLAUDE_API_KEY=\"your-key\"${NC}"
     echo
     echo -e "    # Route both agent and planner:"
-    echo -e "    ${BLUE}export CODEY_BACKEND=\"unlimitedclaude\"${NC}"
+    echo -e "    ${BLUE}export KUZA_BACKEND=\"unlimitedclaude\"${NC}"
     echo
     echo -e "    # Override the 7B coding model (default: qwen3-coder-next):"
     echo -e "    ${BLUE}export UNLIMITEDCLAUDE_MODEL=\"claude-sonnet-4-5\"${NC}"
@@ -389,12 +389,12 @@ print_completion() {
     echo
     echo -e "  ── ${BOLD}Mix backends${NC} (most flexible) ───────────────────────────────"
     echo -e "    # e.g. 7B runs locally, planner goes to OpenRouter:"
-    echo -e "    ${BLUE}export CODEY_BACKEND=\"local\"${NC}"
-    echo -e "    ${BLUE}export CODEY_BACKEND_P=\"openrouter\"${NC}"
+    echo -e "    ${BLUE}export KUZA_BACKEND=\"local\"${NC}"
+    echo -e "    ${BLUE}export KUZA_BACKEND_P=\"openrouter\"${NC}"
     echo -e "    ${BLUE}export OPENROUTER_PLANNER_MODEL=\"meta-llama/llama-3.2-1b-instruct:free\"${NC}"
     echo
     echo -e "  ── ${BOLD}Back to local${NC} ────────────────────────────────────────────────"
-    echo -e "    ${BLUE}unset CODEY_BACKEND CODEY_BACKEND_P${NC}   # local is always the default"
+    echo -e "    ${BLUE}unset KUZA_BACKEND KUZA_BACKEND_P${NC}   # local is always the default"
     echo
     echo -e "  ${YELLOW}Permanent: add exports to ${BLUE}~/.bashrc${YELLOW} then run ${BLUE}source ~/.bashrc${NC}"
     echo

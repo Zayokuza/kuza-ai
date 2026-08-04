@@ -13,7 +13,7 @@ import time
 from typing import Optional, Dict, Any
 
 from utils.logger import info, error, warning, success
-from utils.config import MODEL_CONFIG, CODEY_BACKEND, is_remote_backend
+from utils.config import MODEL_CONFIG, KUZA_BACKEND, is_remote_backend
 from core.loader_v2 import get_loader
 from rich.console import Console
 from core.observability.logger import new_session_id, log_event

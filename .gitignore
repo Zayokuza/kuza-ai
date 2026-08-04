@@ -15,47 +15,47 @@ build/
 venv/
 env/
 
-# ── Codey-v2: user-generated / per-install files ──────────────────────────────
+# ── Kuza-v2: user-generated / per-install files ──────────────────────────────
 # Users generate these themselves after install — should NOT be in the repo
-CODEY.md
+KUZA.md
 CLAUDE.md
 
-# ── Codey-v2: runtime state ───────────────────────────────────────────────────
+# ── Kuza-v2: runtime state ───────────────────────────────────────────────────
 # Daemon state, logs, PID, socket, checkpoints, sessions
-~/.codey-v2/
-.codey-v2/
+~/.kuza-v2/
+.kuza-v2/
 *.pid
 *.sock
 *.log
-codey_sessions/
-.codey_sessions/
+kuza_sessions/
+.kuza_sessions/
 checkpoints/
 
-# ── Codey-v2: knowledge base (auto-generated, per-install) ───────────────────
+# ── Kuza-v2: knowledge base (auto-generated, per-install) ───────────────────
 # 266MB of external content (cloned repos, chunk indexes, vector stores).
 # Generated locally — never commit.
 knowledge/
 
-# ── Codey-v2: model files ─────────────────────────────────────────────────────
+# ── Kuza-v2: model files ─────────────────────────────────────────────────────
 # Models live in ~/models/, never committed
 *.gguf
 *.bin
 *.safetensors
 model/
 
-# ── Codey-v2: fine-tuning output ──────────────────────────────────────────────
+# ── Kuza-v2: fine-tuning output ──────────────────────────────────────────────
 *.jsonl
 *.ipynb
-codey-finetune*/
-codey-lora*/
+kuza-finetune*/
+kuza-lora*/
 pipeline_output/retrieval/metadata.db
 pipeline_output/pipeline_stats.json
 
-# ── Codey-v2: dev artifacts ───────────────────────────────────────────────────
+# ── Kuza-v2: dev artifacts ───────────────────────────────────────────────────
 backups/
-codey_backup_*/
+kuza_backup_*/
 .pytest_cache/
-.codeyignore
+.kuzaignore
 audit_report_*.md
 REFACTOR_*.md
 RELEASE_NOTES_*.md

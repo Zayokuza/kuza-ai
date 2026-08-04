@@ -6,7 +6,7 @@
 # and just need to make kuza2 available system-wide.
 #
 
-CODEY_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Determine shell config
 if [ -n "$BASH_VERSION" ]; then
@@ -18,14 +18,14 @@ else
 fi
 
 # Make scripts executable
-chmod +x "$CODEY_V2_DIR/kuza2"
-chmod +x "$CODEY_V2_DIR/kuzad2"
+chmod +x "$KUZA_V2_DIR/kuza2"
+chmod +x "$KUZA_V2_DIR/kuzad2"
 
 # Add to PATH if not already there
 if ! grep -q "kuza-v2" "$SHELL_CONFIG" 2>/dev/null; then
     echo "" >> "$SHELL_CONFIG"
     echo "# Kuza-v2" >> "$SHELL_CONFIG"
-    echo "export PATH=\"$CODEY_V2_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+    echo "export PATH=\"$KUZA_V2_DIR:\$PATH\"" >> "$SHELL_CONFIG"
     echo "Added kuza2 to PATH in $SHELL_CONFIG"
 else
     echo "kuza2 already in PATH"

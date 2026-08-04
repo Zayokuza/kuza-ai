@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from utils.logger import info, warning, error, success
-from utils.config import CODEY_DIR, MODEL_CONFIG
+from utils.config import KUZA_DIR, MODEL_CONFIG
 from core.tokens import estimate_tokens
 
 # ── Token budget constants ───────────────────────────────────────────────────

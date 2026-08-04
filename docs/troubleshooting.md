@@ -34,7 +34,7 @@ ls -la ~/models/qwen2.5-0.5b/
 ls -la ~/models/nomic-embed/
 ```
 
-Check that the filenames match the paths in `utils/config.py`, or set `CODEY_MODEL`, `CODEY_PLANNER_MODEL`, and `CODEY_EMBED_MODEL` environment variables to the correct paths.
+Check that the filenames match the paths in `utils/config.py`, or set `KUZA_MODEL`, `KUZA_PLANNER_MODEL`, and `KUZA_EMBED_MODEL` environment variables to the correct paths.
 
 ### High memory usage
 
@@ -44,7 +44,7 @@ kuzad2 status   # Check RAM and task queue
 kuzad2 restart  # Clears working memory
 ```
 
-If the 7B model alone is using more than ~5 GB, verify that `CODEY_7B_MMAP=1` is set (default). Memory-mapped weights only load touched pages into RAM.
+If the 7B model alone is using more than ~5 GB, verify that `KUZA_7B_MMAP=1` is set (default). Memory-mapped weights only load touched pages into RAM.
 
 ### Planner / summarizer not responding
 

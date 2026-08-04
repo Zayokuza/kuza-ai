@@ -30,7 +30,7 @@ section below.
 
 #### Four-Tier Memory System (`core/memory_v2.py`)
 - **Working memory** — LRU cache of currently-relevant file contents; evicted after task
-- **Project memory** — `CODEY.md` + key files pinned at boot; never evicted
+- **Project memory** — `KUZA.md` + key files pinned at boot; never evicted
 - **Long-term memory** — optional semantic search over the local knowledge base (RAG)
 - **Episodic memory** — action history log (file writes, patches, shell calls)
 
@@ -104,7 +104,7 @@ section below.
 - **`parse_task_list` and `_postprocess_plan`** (`orchestrator.py`): `[:5]` → `[:8]`
 - **`PLANNER_MAX_TOKENS`** (`utils/config.py`): `768` → `1024` — gives local 0.5B
   enough room for 8 detailed steps without truncation
-- **`CODEY_VERSION`**: `"2.7.0"` → `"2.7.2"`
+- **`KUZA_VERSION`**: `"2.7.0"` → `"2.7.2"`
 
 #### New unit tests
 
@@ -121,7 +121,7 @@ section below.
 
 ### Changed
 
-- `utils/config.py` — `CODEY_VERSION`: `"2.7.0"` → `"2.7.2"`
+- `utils/config.py` — `KUZA_VERSION`: `"2.7.0"` → `"2.7.2"`
 - `utils/config.py` — `PLANNER_MAX_TOKENS`: `768` → `1024`
 - `core/plannd.py` — step prompt: "2 to 5" → "2 to 8"
 - `core/orchestrator.py` — plan cap: 5 → 8
@@ -360,14 +360,14 @@ KB vector index now takes ~3 minutes instead of ~3 hours on-device.
 
 #### Changes to `utils/config.py`
 
-- `EMBED_MODEL_PATH` — path to embed GGUF (env: `CODEY_EMBED_MODEL`,
+- `EMBED_MODEL_PATH` — path to embed GGUF (env: `KUZA_EMBED_MODEL`,
   default: `~/models/nomic-embed/nomic-embed-text-v1.5.Q4_K_M.gguf`)
-- `EMBED_SERVER_PORT = 8082` — overridable via `CODEY_EMBED_PORT`
+- `EMBED_SERVER_PORT = 8082` — overridable via `KUZA_EMBED_PORT`
 
 #### Changes to `tools/kb_semantic.py`
 
 - `_LLAMA_PORT` default changed from `8080` → `8082` (the embed server
-  port).  Priority: `CODEY_EMBED_PORT` > `CODEY_LLAMA_PORT` > `8082`.
+  port).  Priority: `KUZA_EMBED_PORT` > `KUZA_LLAMA_PORT` > `8082`.
 - Both `build_semantic_index()` and `semantic_search()` now automatically
   connect to the dedicated embed server — no code change required.
 
@@ -555,7 +555,7 @@ phase="draft"    → Full context (identical to old build_system_prompt — no r
                    Priority stack:
                      0 SYSTEM_PROMPT       (required)
                      1 User preferences
-                     2 Project memory / CODEY.md
+                     2 Project memory / KUZA.md
                      3 Repo map
                      3 Retrieved KB docs (RAG, Phase 1)
                      4 Loaded files
@@ -570,7 +570,7 @@ phase="refine"   → Full context minus history — adds critique summary
                    Priority stack:
                      0 SYSTEM_PROMPT       (required)
                      1 User preferences
-                     2 Project memory / CODEY.md
+                     2 Project memory / KUZA.md
                      2 Issues to Fix (critique summary, required)
                      3 Repo map
                      3 Targeted retrieved docs (NEED_DOCS, if any)
@@ -726,7 +726,7 @@ knowledge/
 ```
 System prompt:       ~500 tokens
 User preferences:    ~100 tokens
-CODEY.md/project:    ~200 tokens
+KUZA.md/project:    ~200 tokens
 Repository map:      ~300 tokens
 Reference material:  ~600 tokens  ← NEW (from knowledge base)
 Loaded files:       ~1600 tokens  (unchanged; headroom absorbed the new slot)
@@ -768,7 +768,7 @@ Safety headroom:    ~1444 tokens
 #### Phase 4: Hierarchical Memory
 - Four-tier memory system (`core/memory_v2.py`)
   - Working memory: Currently edited files (evicted after task)
-  - Project memory: CODEY.md + key files (never evicted)
+  - Project memory: KUZA.md + key files (never evicted)
   - Long-term memory: Embeddings for semantic search
   - Episodic memory: Action history log
 - Embeddings integration with sentence-transformers (`core/embeddings.py`)
@@ -827,7 +827,7 @@ Safety headroom:    ~1444 tokens
 - Shell execution with safety checks
 - Git integration (`/git` commands)
 - Session save/load functionality
-- CODEY.md project memory system
+- KUZA.md project memory system
 - TDD mode (`--tdd`)
 - Fix mode (`--fix`)
 - Interactive REPL

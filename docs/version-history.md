@@ -110,7 +110,7 @@ hardening. See [CHANGELOG.md](../CHANGELOG.md) for the complete feature list.
 - `/peer` command for manual escalation; smart routing by task type.
 - Crash detection for Android ARM64 native module failures.
 - Natural language preference learning; expanded preference categories.
-- CODEY.md sync: high-confidence preferences written to project Conventions section.
+- KUZA.md sync: high-confidence preferences written to project Conventions section.
 
 ## v2.4.0 — Hybrid Inference Backend
 

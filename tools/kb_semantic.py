@@ -105,10 +105,10 @@ def _encode_legacy(texts: list) -> "np.ndarray":
 # Detected lazily — no HTTP calls at import time.
 
 # Port 8082 = dedicated nomic-embed server (Option C, v2.6.6).
-# Falls back to CODEY_EMBED_PORT env var, then CODEY_LLAMA_PORT, then 8082.
+# Falls back to KUZA_EMBED_PORT env var, then KUZA_LLAMA_PORT, then 8082.
 _LLAMA_PORT = os.environ.get(
-    "CODEY_EMBED_PORT",
-    os.environ.get("CODEY_LLAMA_PORT", "8082"),
+    "KUZA_EMBED_PORT",
+    os.environ.get("KUZA_LLAMA_PORT", "8082"),
 )
 _LLAMA_EMBED_URL = f"http://localhost:{_LLAMA_PORT}/v1/embeddings"
 _llama_ok: bool | None = None  # None = unchecked
