@@ -1048,7 +1048,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         "create", "write", "make", "build", "edit", "fix", "run", "execute",
         "install", "add", "delete", "remove", "update", "patch", "refactor",
         "implement", "generate", "rewrite", "deploy", "setup", "configure",
-        "review", "analyze", "analyse", "audit", "examine", "inspect", "assess",
+        "review", "analyze", "analyse", "audit", "examine", "inspect", "assess", "find", "locate", "search", "research", "discover", "lookup",
         "read", "look at", "show me", "check",
         # Previously missing — caused QA false-positives for real edit requests:
         "replace", "rename", "swap", "convert", "change", "append", "insert",
