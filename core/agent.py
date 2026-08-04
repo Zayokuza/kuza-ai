@@ -1367,6 +1367,16 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             messages.append({"role": "assistant", "content": response})
             messages.append({"role": "user", "content": "You must call " + " and ".join(missing) + ".\nOutput ONLY a tool call:\n" + tool_hint})
             continue
+        # Never accept a useless generic final response after a tool ran.
+        # Preserve the actual tool evidence so Kuza does not hide results
+        # behind replies such as "Done."
+        _generic_final = response.strip().lower().rstrip(".!")
+        if last_tool_result and _generic_final in {"done", "completed", "finished", "success"}:
+            response = (
+                "Command/tool completed successfully.\n"
+                "Result:\n" + last_tool_result.strip()
+            )
+
         history.append({"role": "user",     "content": user_message})
         history.append({"role": "assistant", "content": response})
         if not _in_subtask:
