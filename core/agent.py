@@ -527,6 +527,46 @@ def is_error(result, tool_name):
         return any(s in result_lower for s in error_signals)
     return False
 
+_FILE_CHANGE_WORDS = (
+    "create", "write", "make", "build", "implement", "modify", "add",
+    "edit", "fix", "delete", "remove", "update", "patch", "refactor",
+    "generate", "rewrite", "deploy", "setup", "configure", "replace",
+    "rename", "swap", "convert", "change", "append", "insert", "move",
+    "copy",
+)
+
+_NEGATED_FILE_CHANGE_PATTERNS = (
+    r"\b(?:do\s+not|don't|dont|never)\s+"
+    r"(?:modify|edit|change|write|create|patch|append|delete|remove|rename|move)\b",
+    r"\bwithout\s+"
+    r"(?:modifying|editing|changing|writing|creating|patching|appending|"
+    r"deleting|removing|renaming|moving)\b",
+    r"\bno\s+(?:file\s+)?(?:modifications?|edits?|changes?|writes?)\b",
+    r"\bread[- ]only\b",
+)
+
+
+def _file_change_intent(message):
+    """Return (file_change_requested, explicitly_read_only)."""
+    remaining = re.sub(r"\bmake\s+sure\b", " ", message.lower())
+    read_only_marker = False
+
+    for pattern in _NEGATED_FILE_CHANGE_PATTERNS:
+        remaining, count = re.subn(pattern, " ", remaining)
+        read_only_marker = read_only_marker or count > 0
+
+    needs_file = any(
+        re.search(r"\b" + re.escape(word) + r"\b", remaining)
+        for word in _FILE_CHANGE_WORDS
+    )
+    return needs_file, read_only_marker and not needs_file
+
+
+def is_read_only_request(message):
+    """Return True when the user explicitly forbids file changes."""
+    return _file_change_intent(message)[1]
+
+
 def is_hallucination(response, user_message, tools_used):
     """
     Detect obvious claims that work was completed without the required tool.
@@ -537,10 +577,7 @@ def is_hallucination(response, user_message, tools_used):
     msg_lower = user_message.lower()
     resp_lower = response.lower()
 
-    needs_file = any(
-        k in msg_lower
-        for k in ["create", "write", "make", "build", "implement", "modify", "add"]
-    )
+    needs_file, _ = _file_change_intent(user_message)
     needs_run = any(k in msg_lower for k in ["run", "execute", "test"])
 
     file_done = any(
@@ -617,6 +654,8 @@ def enrich_message(user_message):
     return user_message
 
 def check_git_and_offer_commit(user_message, tools_used):
+    if is_read_only_request(user_message):
+        return
     if not tools_used:
         return
     # Only offer if write_file or patch_file was used
@@ -1168,6 +1207,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     
     # Pre-inference guide: if it's a question or conversation, tell it NOT to use tools
     msg_low = user_message.lower().strip()
+    _read_only_mode = is_read_only_request(user_message)
     _action_kws = [
         "create", "write", "make", "build", "edit", "fix", "run", "execute",
         "install", "add", "delete", "remove", "update", "patch", "refactor",
@@ -1245,6 +1285,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             step == 1
             and not is_qa
             and not _explicit_tool_request
+            and not _read_only_mode
             and RECURSIVE_CONFIG.get("enabled", True)
         )
         _stop = ["</tool>"] + _LEAK_STOP_SEQUENCES
@@ -1304,7 +1345,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         # directly — never ask the model again (prevents "YOUR CODE" placeholder).
         # Only fires on step 1 (_use_recursive), only for create-file requests,
         # only when a filename is present in the message and code is in the response.
-        if not tool_dict and _use_recursive and not is_qa:
+        if not tool_dict and _use_recursive and not is_qa and not _read_only_mode:
             _create_kws = ["create", "write", "make", "build", "generate", "implement"]
             if any(k in user_message.lower() for k in _create_kws):
                 _fname_m = re.search(
@@ -1334,6 +1375,29 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                  messages.append({"role": "user", "content": "Just answer my question directly with text. No tools needed. Final answer format: 'I can help with [tasks].'"})
                  continue
             
+            # Explicit read-only requests may inspect, but never modify files.
+            if _read_only_mode and name in [
+                "write_file", "patch_file", "append_file", "delete_file"
+            ]:
+                path = args.get("path", "") or "(unknown path)"
+                warning(
+                    f"Blocked '{name}' during read-only task: {path}"
+                )
+                messages.append({
+                    "role": "assistant",
+                    "content": _format_tool_for_history(tool_dict),
+                })
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "The original request is explicitly read-only. "
+                        "Do not create, modify, append, or delete files. "
+                        "Use read_file, list_dir, or a read-only shell command "
+                        "to gather evidence, then report exact results."
+                    ),
+                })
+                continue
+
             # Allow supporting files required by implementation tasks.
             # Only block surprise writes when the original request was classified
             # as ordinary Q&A rather than an action.

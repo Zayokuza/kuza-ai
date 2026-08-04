@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.agent import is_hallucination
+from core.agent import is_hallucination, is_read_only_request
 
 
 class TestHallucinationDetection:
@@ -199,6 +199,37 @@ class TestHallucinationDetection:
         
         false_file, false_run = is_hallucination(response, user_message, tools_used)
         assert false_file == False
+
+    def test_read_only_modify_request_does_not_force_write(self):
+        """Negated modify wording must not trigger a write_file fallback."""
+        response = "```plaintext\nNo Codey references found.\n```"
+        user_message = (
+            "Search the repository for Codey references. "
+            "Do not modify any files."
+        )
+
+        false_file, false_run = is_hallucination(
+            response, user_message, []
+        )
+
+        assert false_file is False
+        assert false_run is False
+        assert is_read_only_request(user_message) is True
+
+    def test_without_editing_is_read_only(self):
+        """'Without editing' must be recognized as read-only intent."""
+        message = "Inspect the project without editing files."
+        assert is_read_only_request(message) is True
+
+    def test_mixed_request_keeps_positive_create_intent(self):
+        """A later positive create instruction must not be erased."""
+        message = "Do not modify old.py, but create new.py."
+        response = "I created new.py"
+
+        false_file, _ = is_hallucination(response, message, [])
+
+        assert is_read_only_request(message) is False
+        assert false_file is True
 
 
 if __name__ == "__main__":
