@@ -644,6 +644,38 @@ def _extract_safe_read_only_shell_block(response):
     return command
 
 
+def _ground_read_only_response(response, last_tool_result):
+    """Prevent negative inspection claims that contradict tool output."""
+    evidence_text = (last_tool_result or "").strip()
+    empty_evidence_markers = {
+        "",
+        "[no output]",
+        "(no output)",
+        "no output",
+        "[ok]",
+        "ok",
+    }
+    negative_evidence_claim = re.search(
+        r"\b(?:no|zero)\s+"
+        r"(?:[A-Za-z0-9_.-]+\s+){0,2}"
+        r"(?:matches|references|results|occurrences|instances|findings)\b"
+        r"|\b(?:did not|didn't|could not|couldn't)\s+find(?:\s+any)?\b"
+        r"|\bfound\s+(?:no|zero)\b"
+        r"|\bnothing\s+(?:was\s+)?found\b",
+        response,
+        re.IGNORECASE,
+    )
+    if (
+        negative_evidence_claim
+        and evidence_text.lower() not in empty_evidence_markers
+    ):
+        return (
+            "The inspection produced the following evidence:\n"
+            + evidence_text
+        )
+    return response
+
+
 def is_hallucination(response, user_message, tools_used):
     """
     Detect obvious claims that work was completed without the required tool.
@@ -1753,6 +1785,12 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             response = (
                 "Command/tool completed successfully.\n"
                 "Result:\n" + last_tool_result.strip()
+            )
+
+        # Ground read-only conclusions in the actual tool output.
+        if _read_only_mode:
+            response = _ground_read_only_response(
+                response, last_tool_result
             )
 
         history.append({"role": "user",     "content": user_message})

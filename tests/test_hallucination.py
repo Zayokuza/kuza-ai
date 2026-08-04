@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.agent import (
     _extract_safe_read_only_shell_block,
+    _ground_read_only_response,
     _is_safe_read_only_shell_command,
     is_hallucination,
     is_read_only_request,
@@ -275,6 +276,33 @@ class TestHallucinationDetection:
         command = "grep -r Codey .; rm output.py"
         assert _is_safe_read_only_shell_command(command) is False
 
+
+
+def test_false_negative_is_replaced_with_tool_evidence():
+    """A negative claim must not contradict substantive inspection output."""
+    response = "No Codey references found."
+    evidence = "tests/test_example.py:legacy identifier"
+
+    grounded = _ground_read_only_response(response, evidence)
+
+    assert grounded != response
+    assert evidence in grounded
+
+
+def test_negative_claim_survives_when_tool_has_no_output():
+    """A genuinely empty search must remain reportable."""
+    response = "No matching references were found."
+
+    assert _ground_read_only_response(response, "") == response
+    assert _ground_read_only_response(response, "[No output]") == response
+
+
+def test_positive_evidence_summary_is_preserved():
+    """A response already consistent with evidence must remain unchanged."""
+    response = "One matching reference was found."
+    evidence = "tests/test_example.py:legacy identifier"
+
+    assert _ground_read_only_response(response, evidence) == response
 
 if __name__ == "__main__":
     import pytest
