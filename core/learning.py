@@ -11,6 +11,8 @@ Provides unified interface for Kuza-v2 to learn and improve over time.
 """
 
 import time
+import json
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -159,6 +161,127 @@ class LearningManager:
             log_success(f"Learned from {error_type}: {fix[:50]}...")
         else:
             warning(f"Failed fix for {error_type}: {fix[:50]}...")
+
+    def record_task_outcome(
+        self,
+        goal: str,
+        actions: List[str],
+        success: bool,
+        validation: List[str] = None,
+    ) -> None:
+        """Persist a compact experience record for future task decisions."""
+        payload = {
+            "goal": str(goal)[:500],
+            "actions": [str(action)[:160] for action in actions[-20:]],
+            "success": bool(success),
+            "validation": [
+                str(item)[:500] for item in (validation or [])[-4:]
+            ],
+            "recorded_at": int(time.time()),
+        }
+        try:
+            from core.state import get_state_store
+            get_state_store().log_action(
+                "task_outcome",
+                json.dumps(payload, sort_keys=True),
+            )
+        except Exception as exc:
+            warning(f"Could not persist task outcome: {exc}")
+
+        for action in payload["actions"]:
+            strategy = action.split(":", 1)[0]
+            if strategy:
+                self.strategy_tracker.record_attempt(
+                    strategy,
+                    "task_execution",
+                    success,
+                    0.0,
+                )
+
+    def get_relevant_experiences(
+        self,
+        goal: str,
+        limit: int = 3,
+        scan_limit: int = 200,
+    ) -> List[Dict[str, Any]]:
+        """Return prior task outcomes relevant to a new goal.
+
+        Retrieval is local and deterministic. It ranks persisted outcomes by
+        meaningful token overlap, then prefers validated successful attempts.
+        """
+        tokens = {
+            token
+            for token in re.findall(r"[a-zA-Z0-9_]{3,}", str(goal).lower())
+            if token not in {
+                "the", "and", "for", "with", "that", "this", "from",
+                "into", "then", "have", "what", "when", "where",
+            }
+        }
+        try:
+            from core.state import get_state_store
+            rows = get_state_store().get_recent_actions(limit=scan_limit)
+        except Exception:
+            return []
+
+        ranked: List[tuple[float, Dict[str, Any]]] = []
+        for row in rows:
+            if row.get("action") != "task_outcome":
+                continue
+            try:
+                payload = json.loads(row.get("details") or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+
+            prior_goal = str(payload.get("goal", ""))
+            prior_tokens = set(
+                re.findall(r"[a-zA-Z0-9_]{3,}", prior_goal.lower())
+            )
+            overlap = len(tokens & prior_tokens)
+            if tokens and overlap == 0:
+                continue
+            validation = payload.get("validation") or []
+            score = float(overlap)
+            if payload.get("success"):
+                score += 0.5
+            if validation:
+                score += 0.25
+            ranked.append((score, payload))
+
+        ranked.sort(
+            key=lambda item: (
+                item[0],
+                int(item[1].get("recorded_at", 0)),
+            ),
+            reverse=True,
+        )
+        return [payload for _, payload in ranked[:max(0, limit)]]
+
+    def format_experience_context(self, goal: str, limit: int = 3) -> str:
+        """Format relevant prior outcomes for prompt injection."""
+        experiences = self.get_relevant_experiences(goal, limit=limit)
+        if not experiences:
+            return ""
+
+        lines = ["Relevant verified experience from earlier tasks:"]
+        for item in experiences:
+            outcome = "succeeded" if item.get("success") else "failed"
+            actions = ", ".join(str(a) for a in (item.get("actions") or [])[-5:])
+            validation = " | ".join(
+                str(v).replace("\n", " ")[:240]
+                for v in (item.get("validation") or [])[-2:]
+            )
+            lines.append(f"- Goal: {str(item.get('goal', ''))[:300]} [{outcome}]")
+            if actions:
+                lines.append(f"  Actions: {actions[:600]}")
+            if validation:
+                lines.append(f"  Evidence: {validation[:500]}")
+        lines.append(
+            "Reuse successful strategies when they still fit; avoid repeating "
+            "failed actions without a new reason or new evidence."
+        )
+        return "\n".join(lines)
 
     def get_best_strategy(self, error_type: str) -> Optional[str]:
         """

@@ -93,6 +93,47 @@ _IMPLEMENTATION_REQUEST_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+_SEARCH_REQUEST_RE = re.compile(
+    r"\b(?:find|locate|search|research|discover|look\s+up|investigate|"
+    r"identify|track\s+down|gather)\b",
+    re.IGNORECASE,
+)
+_SEARCH_BLOCKER_RE = re.compile(
+    r"\b(?:i\s+can(?:not|'t)|unable\s+to|could(?:not|n't)|"
+    r"no\s+access|nothing\s+found|not\s+found|cannot\s+find)\b",
+    re.IGNORECASE,
+)
+_INSPECTION_TOOLS = {
+    "read_file", "list_dir", "search_files", "web_search", "read_webpage"
+}
+_SEARCH_TOOLS = {"search_files", "web_search", "read_webpage"}
+
+
+def _is_search_goal(message: str) -> bool:
+    return bool(_SEARCH_REQUEST_RE.search(message or ""))
+
+
+def _project_has_reusable_source(root=None) -> bool:
+    """Cheap check used to require inspection before changing an existing repo."""
+    from pathlib import Path as _Path
+
+    base = _Path(root or ".").resolve()
+    suffixes = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs"}
+    ignored = {".git", "__pycache__", ".venv", "venv", "node_modules"}
+    try:
+        for entry in base.iterdir():
+            if entry.name in ignored or entry.name.startswith("."):
+                continue
+            if entry.is_file() and entry.suffix in suffixes:
+                return True
+            if entry.is_dir():
+                for child in entry.iterdir():
+                    if child.is_file() and child.suffix in suffixes:
+                        return True
+    except OSError:
+        return False
+    return False
+
 
 def detect_email_account_lookup(message: str):
     """Return the requested email for a direct account-registration lookup.
@@ -1005,6 +1046,29 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     # Learn preferences from natural language in the user's message
     _get_learning().learn_from_message(user_message)
 
+    # Main/sidecar shared evidence. Static repository analysis starts early so
+    # Python can map reusable code while the main model handles the goal.
+    _sidecar = None
+    _sidecar_sequence = 0
+    _preflight_job_id = None
+    if AGENT_CONFIG.get("share_sidecar_evidence", True):
+        try:
+            from core.sidecar.manager import get_sidecar
+            _sidecar = get_sidecar()
+            _sidecar.publish_main(
+                "goal",
+                user_message,
+                details={"cwd": __import__("os").getcwd()},
+            )
+            if _IMPLEMENTATION_REQUEST_RE.search(user_message):
+                from core.implementation.analyzer import analyze_repository_async
+                _preflight_job_id = analyze_repository_async(
+                    ".",
+                    goal=user_message,
+                )
+        except Exception:
+            _sidecar = None
+
     # Email-registration lookups already have a purpose-built local tool. Route
     # them deterministically so a coding-focused model cannot invent search.py
     # or claim that comparing a hardcoded string searched online accounts.
@@ -1315,12 +1379,15 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         queue = plan_tasks(user_message, read_kuzamd())
         if queue.tasks:
             show_task_plan(queue)
-            try:
-                ans = console.input("  Execute this plan? [Y/n]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                ans = "n"
-            if ans in ("n", "no"):
-                return "[Cancelled]", history
+            if AGENT_CONFIG.get("auto_execute_plans", False):
+                info("Active autonomy: executing the verified plan.")
+            else:
+                try:
+                    ans = console.input("  Execute this plan? [Y/n]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    ans = "n"
+                if ans in ("n", "no"):
+                    return "[Cancelled]", history
             run_queue(queue, yolo=yolo)
             _failed = [t for t in queue.tasks if t.status == 'failed']
             _audit_passed = getattr(queue, 'completion_audit_passed', False)
@@ -1337,6 +1404,51 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 summary += " Failed: " + "; ".join(
                     t.description[:50] for t in _failed
                 ) + "."
+
+            _states = getattr(queue, "new_save_states", [])
+            if _states:
+                _state_lines = []
+                for _state in _states[:8]:
+                    _files = ", ".join(_state.files[:4]) or "[no files]"
+                    if len(_state.files) > 4:
+                        _files += f", +{len(_state.files) - 4} more"
+                    _state_lines.append(
+                        f"- {_state.save_state_id}: {_files} ({_state.reason})"
+                    )
+                summary += "\n\nSave states created:\n" + "\n".join(_state_lines)
+
+            _evidence = getattr(queue, "execution_evidence", [])
+            _evidence_lines = []
+            for _item in _evidence:
+                _detail = (_item.get("error") or _item.get("result") or "").strip()
+                if not _detail:
+                    continue
+                if len(_detail) > 600:
+                    _detail = _detail[-600:]
+                _evidence_lines.append(
+                    f"- Step {_item.get('id')} [{_item.get('status')}]: "
+                    f"{_item.get('description', '')[:90]}\n  {_detail}"
+                )
+            if _evidence_lines:
+                summary += (
+                    "\n\nExecution and test evidence:\n"
+                    + "\n".join(_evidence_lines[-8:])
+                )
+
+            try:
+                _get_learning().record_task_outcome(
+                    user_message,
+                    [item.get("description", "") for item in _evidence],
+                    success=_audit_passed,
+                    validation=[
+                        (item.get("error") or item.get("result") or "")
+                        for item in _evidence
+                        if item.get("error") or item.get("result")
+                    ],
+                )
+            except Exception:
+                pass
+
             history.append({"role": "user",     "content": user_message})
             history.append({"role": "assistant", "content": summary})
             return summary, history
@@ -1358,6 +1470,20 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     # ── Phase 3: Layered system prompt (draft phase) ──────────────────────────
     sys_prompt = build_recursive_prompt(user_message, phase="draft", plan_rag_block=_plan_rag_block)
     messages = [{"role": "system", "content": sys_prompt}]
+
+    # Make persisted experience actionable rather than write-only telemetry.
+    try:
+        _experience_context = _get_learning().format_experience_context(
+            user_message,
+            limit=3,
+        )
+        if _experience_context:
+            messages.append({
+                "role": "system",
+                "content": _experience_context,
+            })
+    except Exception:
+        pass
 
     # Adaptive context management — only compress when context > 75% of n_ctx
     # Build a temporary full messages array for accurate token measurement
@@ -1427,6 +1553,17 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     keep = AGENT_CONFIG["history_turns"] * 2
     messages.extend(history[-keep:] if len(history) > keep else history)
     messages.append({"role": "user", "content": enriched})
+    if _sidecar is not None:
+        try:
+            _shared, _sidecar_sequence = _sidecar.shared_context(
+                since_sequence=_sidecar_sequence,
+                limit=12,
+                max_chars=AGENT_CONFIG.get("sidecar_context_chars", 6000),
+            )
+            if _shared:
+                messages.append({"role": "user", "content": _shared})
+        except Exception:
+            pass
     step = 0
     max_steps = AGENT_CONFIG["max_steps"]
     tools_used = []
@@ -1435,9 +1572,22 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     duplicate_count = 0
     hallucination_count = 0
     auto_retries = 0
-    max_retries = 1
+    max_retries = AGENT_CONFIG.get("max_retries", 4)
+    hard_max_steps = max(
+        max_steps,
+        AGENT_CONFIG.get("hard_max_steps", max_steps),
+    )
     error_log = []        # accumulates error text for peer CLI context
     files_touched = []    # accumulates file paths for peer CLI context
+    validation_evidence = []
+    inspection_done = False
+    search_attempts = 0
+    search_goal = _is_search_goal(user_message)
+    require_inspection = (
+        AGENT_CONFIG.get("inspect_before_write", True)
+        and bool(_IMPLEMENTATION_REQUEST_RE.search(user_message))
+        and _project_has_reusable_source()
+    )
     # Subtasks writing large files need more steps than simple Q&A.
     # If running inside the orchestrator (in_subtask) and the message contains
     # code-generation signals, raise the cap to 10.
@@ -1454,6 +1604,20 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             warning("Context: " + usage_bar(used, total))
         else:
             info("Context: " + usage_bar(used, total))
+        if _sidecar is not None:
+            try:
+                _shared, _sidecar_sequence = _sidecar.shared_context(
+                    since_sequence=_sidecar_sequence,
+                    limit=8,
+                    max_chars=max(
+                        1200,
+                        AGENT_CONFIG.get("sidecar_context_chars", 6000) // 2,
+                    ),
+                )
+                if _shared:
+                    messages.append({"role": "user", "content": _shared})
+            except Exception:
+                pass
         # ── Phase 2: Recursive inference on first step for non-QA tasks ─────────
         # Subsequent steps (reacting to tool results) use regular infer — recursion
         # is only valuable when generating the initial response/tool call.
@@ -1558,6 +1722,26 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         if tool_dict:
             name = tool_dict.get("name", "")
             args = tool_dict.get("args", {})
+
+            if (
+                require_inspection
+                and not inspection_done
+                and name in {"write_file", "patch_file", "append_file"}
+            ):
+                messages.append({
+                    "role": "assistant",
+                    "content": _format_tool_for_history(tool_dict),
+                })
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Before changing an existing project, inspect reusable "
+                        "code with search_files, read_file, or list_dir. Find the "
+                        "closest existing implementation, then adapt it instead "
+                        "of duplicating it."
+                    ),
+                })
+                continue
             
             # SANITY CHECK: prevent hallucinated tool usage
             if is_qa and name not in ["read_file", "list_dir", "note_save", "note_forget"]:
@@ -1632,18 +1816,87 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             if sig in tools_used:
                 duplicate_count += 1
                 if duplicate_count >= 2:
-                    separator()
-                    summary = "Done. " + last_tool_result[:300]
-                    print("\033[1;32mKuza:\033[0m " + summary)
-                    separator()
-                    history.append({"role": "user",     "content": user_message})
-                    history.append({"role": "assistant", "content": summary})
-                    return summary, history
+                    messages.append({
+                        "role": "assistant",
+                        "content": _format_tool_for_history(tool_dict),
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "That exact action was already executed. Do not "
+                            "repeat it or claim completion from repetition. Use "
+                            "a different search source, implementation strategy, "
+                            "or validation test that adds new evidence."
+                        ),
+                    })
+                    continue
                 messages.append({"role": "assistant", "content": _format_tool_for_history(tool_dict)})
-                messages.append({"role": "user", "content": "Already ran that. Result: " + last_tool_result[:200] + "\nTask complete. Reply with 1 sentence only."})
+                messages.append({"role": "user", "content": "Already ran that. Use a different action that adds new evidence."})
                 continue
             tools_used.append(sig)
             last_tool_result = execute_tool(tool_dict)
+
+            if name in _INSPECTION_TOOLS:
+                inspection_done = True
+            if name in _SEARCH_TOOLS:
+                search_attempts += 1
+            if name == "shell":
+                command_text = str(args.get("command", "")).lower()
+                if any(marker in command_text for marker in (
+                    "pytest", "unittest", "py_compile", "compileall",
+                    "npm test", "cargo test", "go test",
+                )):
+                    validation_evidence.append(last_tool_result[:1200])
+
+            # Deterministic validation is a hard completion gate for supported
+            # mutations; it does not depend on the model remembering to test.
+            if (
+                name in {"write_file", "patch_file", "append_file"}
+                and not is_error(last_tool_result, name)
+                and AGENT_CONFIG.get("require_validation", True)
+            ):
+                changed_path = args.get("path", "")
+                try:
+                    from core.validation import validate_changed_paths
+                    validation_results = validate_changed_paths([changed_path])
+                    for validation in validation_results:
+                        summary = validation.summary()
+                        validation_evidence.append(summary)
+                        if validation.passed:
+                            last_tool_result += "\n" + summary
+                        else:
+                            last_tool_result = (
+                                "[ERROR] Post-change validation failed.\n"
+                                + last_tool_result
+                                + "\n"
+                                + summary
+                            )
+                            break
+                except Exception as validation_error:
+                    last_tool_result = (
+                        "[ERROR] Validation could not run after the change: "
+                        + str(validation_error)
+                    )
+
+            if _sidecar is not None:
+                try:
+                    _sidecar.publish_main(
+                        "tool_result",
+                        f"{name}: {last_tool_result[:800]}",
+                        details={"path": args.get("path", "")},
+                    )
+                except Exception:
+                    pass
+
+            # Continue while each step produces new evidence, up to the hard cap.
+            if (
+                not is_error(last_tool_result, name)
+                and step >= max_steps - 1
+                and max_steps < hard_max_steps
+            ):
+                max_steps = min(hard_max_steps, max_steps + 4)
+                info(f"Progress detected — extending task budget to {max_steps} steps.")
+
             if name in ("write_file", "patch_file"):
                 from core.memory_v2 import memory as _mem
                 fpath = args.get("path", "")
@@ -1748,34 +2001,47 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                     pass
 
             messages.append({"role": "assistant", "content": _format_tool_for_history(tool_dict)})
-            # Validate generated Python code before claiming completion.
-            if name == "write_file" and not is_error(last_tool_result, name):
-                _written_path = args.get("path", "")
-                if _written_path.endswith(".py"):
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            f"Tool result: {last_tool_result[:300]}\n"
-                            f"Validate {_written_path} before claiming completion. "
-                            f"Run: python -m py_compile {_written_path}"
-                        ),
-                    })
-                    auto_retries = 0
-                    continue
-
-                _confirm = f"Created {_written_path or 'the file'}"
-                separator()
-                print("\033[1;32mKuza:\033[0m " + _confirm)
-                separator()
-                history.append({"role": "user", "content": user_message})
-                history.append({"role": "assistant", "content": _confirm})
-                return _confirm, history
-            else:
-                # 2000 chars gives the model enough content to work with.
-                # patch_file [PATCH_FAILED] responses include file content that
-                # the model needs to reconstruct a correct write_file call.
-                messages.append({"role": "user", "content": "Tool result: " + last_tool_result[:2000] + "\nNext action or final answer:"})
+            # Give the model real evidence, including save-state and deterministic
+            # validation output, before it selects the next action or reports.
+            messages.append({
+                "role": "user",
+                "content": (
+                    "Tool result: " + last_tool_result[:2400]
+                    + "\nUse a different next action if more evidence is needed; "
+                    "otherwise report the save state, changes, and validation."
+                ),
+            })
             continue
+
+        # A find/search goal may not terminate on an unsupported assertion.
+        # Force an evidence-producing search, then alternate source/query/tool.
+        if search_goal:
+            if search_attempts == 0:
+                messages.append({"role": "assistant", "content": response})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "This is a search goal and no search evidence exists yet. "
+                        "Use search_files for local code or web_search for external "
+                        "information, then open/read the strongest result."
+                    ),
+                })
+                continue
+            if (
+                _SEARCH_BLOCKER_RE.search(response)
+                and search_attempts < max_retries
+            ):
+                messages.append({"role": "assistant", "content": response})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Do not stop at the first failed search. Change the query, "
+                        "use a different source/tool, inspect related terms, and "
+                        "collect concrete evidence before concluding."
+                    ),
+                })
+                continue
+
         false_file, false_run = is_hallucination(
             response, user_message, tools_used
         )
@@ -1824,6 +2090,20 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 response, last_tool_result
             )
 
+        if validation_evidence and "validation" not in response.lower():
+            response += (
+                "\n\nValidation evidence:\n"
+                + "\n".join(validation_evidence[-2:])
+            )
+        try:
+            _get_learning().record_task_outcome(
+                user_message,
+                tools_used,
+                success=not response.lstrip().startswith("[INCOMPLETE]"),
+                validation=validation_evidence,
+            )
+        except Exception:
+            pass
         history.append({"role": "user",     "content": user_message})
         history.append({"role": "assistant", "content": response})
         if not _in_subtask:
@@ -1838,4 +2118,13 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     _incomplete_msg = "[INCOMPLETE] Max steps reached."
     if last_tool_result and not last_tool_result.startswith("["):
         _incomplete_msg += " Last result: " + last_tool_result[:200]
+    try:
+        _get_learning().record_task_outcome(
+            user_message,
+            tools_used,
+            success=False,
+            validation=validation_evidence,
+        )
+    except Exception:
+        pass
     return _incomplete_msg, history

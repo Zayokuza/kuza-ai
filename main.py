@@ -362,6 +362,51 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
             error(result) if result.startswith("[ERROR]") else None
         return True, history
 
+    if low == "/save-states":
+        from core.save_state import list_save_states
+        states = list_save_states(limit=20)
+        if not states:
+            info("No persistent save states found.")
+        else:
+            console.print("[bold]Recent persistent save states:[/bold]")
+            for state in states:
+                files = ", ".join(state.files[:4]) or "[no files]"
+                if len(state.files) > 4:
+                    files += f", +{len(state.files) - 4} more"
+                console.print(
+                    f"  [cyan]{state.save_state_id}[/cyan] — "
+                    f"{state.reason} — {files}"
+                )
+            info("Restore one with: /restore-state <id>")
+        return True, history
+
+    if low.startswith("/restore-state"):
+        from core.save_state import restore_save_state
+        parts = cmd.split(maxsplit=1)
+        if len(parts) < 2:
+            info("Usage: /restore-state <save-state-id>")
+            return True, history
+        save_state_id = parts[1].strip()
+        if not yolo:
+            try:
+                answer = console.input(
+                    f"  Restore save state {save_state_id}? [y/N]: "
+                ).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = "n"
+            if answer not in ("y", "yes"):
+                info("Restore cancelled.")
+                return True, history
+        try:
+            restored = restore_save_state(save_state_id)
+            success(
+                f"Restored save state {save_state_id}: "
+                + ", ".join(restored)
+            )
+        except Exception as exc:
+            error(f"Restore failed: {exc}")
+        return True, history
+
     if low.startswith("/diff"):
         from core.filehistory import diff, list_history
         parts = cmd.split(maxsplit=1)
@@ -1006,7 +1051,9 @@ def handle_command(user_input: str, history: list, yolo: bool = False) -> tuple[
   /ignore <pattern>      Add pattern to .kuzaignore
   /context               Show loaded files and sizes
   /diff [file]           Show what Kuza changed (colored diff)
-  /undo [file]           Restore file to previous version
+  /undo [file]           Restore an in-session file version
+  /save-states           List durable pre-change backups
+  /restore-state <id>    Restore a durable save state
 
 [bold]Code Review (v2.5.2):[/bold]
   /review <file.py>      Run all linters + optional agent fix

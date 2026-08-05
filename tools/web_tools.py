@@ -3,6 +3,7 @@
 
 import ipaddress
 import json
+import os
 import socket
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
@@ -18,10 +19,25 @@ HEADERS = {
 }
 
 SEARCH_URL = "https://html.duckduckgo.com/html/"
-MAX_RESULTS = 10
-MAX_PAGE_CHARS = 12000
-MAX_RESPONSE_BYTES = 1_000_000
-MAX_REDIRECTS = 5
+BING_SEARCH_URL = "https://www.bing.com/search"
+
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+# Larger defaults support research tasks while preserving memory and network
+# bounds on a phone. Every cap can be tuned without editing source.
+MAX_RESULTS = _bounded_env_int("KUZA_WEB_RESULTS", 20, 1, 50)
+MAX_PAGE_CHARS = _bounded_env_int("KUZA_WEB_PAGE_CHARS", 24000, 2000, 100000)
+MAX_RESPONSE_BYTES = _bounded_env_int(
+    "KUZA_WEB_RESPONSE_BYTES", 2_000_000, 100_000, 8_000_000
+)
+MAX_REDIRECTS = _bounded_env_int("KUZA_WEB_REDIRECTS", 8, 1, 12)
 
 
 def _safe_public_url(url: str) -> bool:
@@ -88,8 +104,56 @@ def _clean_ddg_url(url: str) -> str:
     return url
 
 
-def web_search(query: str, limit: int = 5) -> str:
-    """Search DuckDuckGo and return structured JSON results."""
+def _parse_search_results(body: bytes, provider: str, limit: int) -> list[dict]:
+    """Parse one provider response into Kuza's common result schema."""
+    soup = BeautifulSoup(body.decode("utf-8", errors="replace"), "html.parser")
+    results: list[dict] = []
+
+    if provider == "duckduckgo":
+        entries = soup.select(".result")
+        for result in entries:
+            link = result.select_one(".result__a")
+            snippet = result.select_one(".result__snippet")
+            if not link:
+                continue
+            url = _clean_ddg_url(link.get("href", ""))
+            if not url.startswith(("http://", "https://")):
+                continue
+            results.append({
+                "title": link.get_text(" ", strip=True),
+                "url": url,
+                "snippet": snippet.get_text(" ", strip=True) if snippet else "",
+                "provider": provider,
+            })
+            if len(results) >= limit:
+                break
+    elif provider == "bing":
+        for result in soup.select("li.b_algo"):
+            link = result.select_one("h2 a")
+            snippet = result.select_one(".b_caption p") or result.select_one("p")
+            if not link:
+                continue
+            url = link.get("href", "")
+            if not url.startswith(("http://", "https://")):
+                continue
+            results.append({
+                "title": link.get_text(" ", strip=True),
+                "url": url,
+                "snippet": snippet.get_text(" ", strip=True) if snippet else "",
+                "provider": provider,
+            })
+            if len(results) >= limit:
+                break
+
+    return results
+
+
+def web_search(query: str, limit: int = 8) -> str:
+    """Search multiple public providers and return structured JSON results.
+
+    DuckDuckGo is attempted first. Bing is a fallback when the first provider
+    is unavailable or returns no usable results.
+    """
     query = str(query or "").strip()
 
     if not query:
@@ -98,61 +162,41 @@ def web_search(query: str, limit: int = 5) -> str:
     try:
         limit = max(1, min(int(limit), MAX_RESULTS))
     except (TypeError, ValueError):
-        limit = 5
+        limit = min(8, MAX_RESULTS)
 
-    try:
-        response = requests.get(
-            SEARCH_URL,
-            params={"q": query},
-            headers=HEADERS,
-            timeout=20,
-            stream=True,
-        )
+    providers = (
+        ("duckduckgo", SEARCH_URL, {"q": query}),
+        ("bing", BING_SEARCH_URL, {"q": query, "count": str(limit)}),
+    )
+    failures: list[str] = []
+
+    for provider, url, params in providers:
+        response = None
         try:
+            response = requests.get(
+                url,
+                params=params,
+                headers=HEADERS,
+                timeout=20,
+                stream=True,
+            )
             response.raise_for_status()
             body = _read_limited_bytes(response)
+            results = _parse_search_results(body, provider, limit)
+            if results:
+                return json.dumps(results, indent=2, ensure_ascii=False)
+            failures.append(f"{provider}: no usable results")
+        except requests.RequestException as exc:
+            failures.append(f"{provider}: {exc}")
+        except Exception as exc:
+            failures.append(f"{provider}: {exc}")
         finally:
-            response.close()
+            if response is not None:
+                response.close()
 
-        soup = BeautifulSoup(body.decode("utf-8", errors="replace"), "html.parser")
-        results = []
-
-        for result in soup.select(".result"):
-            link = result.select_one(".result__a")
-            snippet = result.select_one(".result__snippet")
-
-            if not link:
-                continue
-
-            url = _clean_ddg_url(link.get("href", ""))
-
-            if not url.startswith(("http://", "https://")):
-                continue
-
-            results.append(
-                {
-                    "title": link.get_text(" ", strip=True),
-                    "url": url,
-                    "snippet": (
-                        snippet.get_text(" ", strip=True)
-                        if snippet
-                        else ""
-                    ),
-                }
-            )
-
-            if len(results) >= limit:
-                break
-
-        if not results:
-            return "No web results found."
-
-        return json.dumps(results, indent=2, ensure_ascii=False)
-
-    except requests.RequestException as exc:
-        return f"[ERROR] Web search failed: {exc}"
-    except Exception as exc:
-        return f"[ERROR] Web search failed: {exc}"
+    if failures:
+        return "[ERROR] Web search exhausted providers: " + "; ".join(failures)
+    return "No web results found."
 
 
 def read_webpage(url: str, max_chars: int = MAX_PAGE_CHARS) -> str:

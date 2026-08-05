@@ -46,17 +46,93 @@ MODEL_CONFIG = {
     "stop": ["<|im_end|>", "<|im_start|>", "\nUser:", "\nHuman:", "\nA:"],
 }
 
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    """Read and clamp an integer environment setting."""
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+# Active is goal-driven but keeps destructive-command, credential, workspace,
+# and privacy boundaries. Guided restores plan confirmation and smaller budgets.
+AUTONOMY_PROFILE = os.environ.get("KUZA_AUTONOMY", "active").strip().lower()
+if AUTONOMY_PROFILE not in {"guided", "active"}:
+    AUTONOMY_PROFILE = "active"
+
+_profile_defaults = {
+    "guided": {
+        "max_steps": 12,
+        "hard_max_steps": 24,
+        "max_retries": 2,
+        "history_turns": 8,
+        "auto_execute_plans": False,
+    },
+    "active": {
+        "max_steps": 24,
+        "hard_max_steps": 48,
+        "max_retries": 4,
+        "history_turns": 12,
+        "auto_execute_plans": True,
+    },
+}[AUTONOMY_PROFILE]
+
 AGENT_CONFIG = {
-    "max_steps":      10,
-    "token_budget":   1500,
-    "confirm_shell":  False,
-    "confirm_write":  False,
-    "history_turns":  8,
+    "autonomy_profile": AUTONOMY_PROFILE,
+    "max_steps": _env_int(
+        "KUZA_MAX_STEPS", _profile_defaults["max_steps"], 4, 64
+    ),
+    "hard_max_steps": _env_int(
+        "KUZA_HARD_MAX_STEPS", _profile_defaults["hard_max_steps"], 8, 96
+    ),
+    "max_retries": _env_int(
+        "KUZA_MAX_RETRIES", _profile_defaults["max_retries"], 1, 12
+    ),
+    "token_budget": _env_int("KUZA_TOKEN_BUDGET", 2400, 512, 8192),
+    "confirm_shell": False,
+    "confirm_write": False,
+    "history_turns": _env_int(
+        "KUZA_HISTORY_TURNS", _profile_defaults["history_turns"], 4, 24
+    ),
+    "project_context_chars": _env_int(
+        "KUZA_PROJECT_CONTEXT_CHARS", 16000, 4000, 48000
+    ),
+    "sidecar_context_chars": _env_int(
+        "KUZA_SIDECAR_CONTEXT_CHARS", 6000, 1200, 16000
+    ),
+    "auto_execute_plans": (
+        os.environ.get(
+            "KUZA_AUTO_EXECUTE",
+            "1" if _profile_defaults["auto_execute_plans"] else "0",
+        ) == "1"
+    ),
+    "inspect_before_write": os.environ.get(
+        "KUZA_INSPECT_BEFORE_WRITE", "1"
+    ) != "0",
+    "require_validation": os.environ.get(
+        "KUZA_REQUIRE_VALIDATION", "1"
+    ) != "0",
+    "share_sidecar_evidence": os.environ.get(
+        "KUZA_SIDECAR_EVIDENCE", "1"
+    ) != "0",
+    "confirm_protected_writes": os.environ.get(
+        "KUZA_CONFIRM_PROTECTED_WRITES",
+        "1" if AUTONOMY_PROFILE == "guided" else "0",
+    ) == "1",
+    "allow_large_rewrites": os.environ.get(
+        "KUZA_ALLOW_LARGE_REWRITES",
+        "0" if AUTONOMY_PROFILE == "guided" else "1",
+    ) == "1",
     # Optional callable(command: str) -> str that replaces the default shell()
-    # invocation.  Used by the daemon to enforce an allowlist without modifying
-    # the global shell tool.  None means use the default shell() function.
-    "_shell_fn":      None,
+    # invocation. Used by the daemon to enforce an allowlist without modifying
+    # the global shell tool. None means use the default shell() function.
+    "_shell_fn": None,
 }
+# Never let the soft budget exceed the hard progress cap.
+AGENT_CONFIG["max_steps"] = min(
+    AGENT_CONFIG["max_steps"], AGENT_CONFIG["hard_max_steps"]
+)
 
 # Thermal management + adaptive depth — Phase 8 (v2.6.8)
 THERMAL_CONFIG = {
@@ -191,10 +267,10 @@ QWEN_7B_MMAP  = os.environ.get("KUZA_7B_MMAP",  "1") != "0"   # default: True
 QWEN_7B_MLOCK = os.environ.get("KUZA_7B_MLOCK", "0") != "0"   # default: False
 
 # ── Planner settings ─────────────────────────────────────────────────────────
-# Keep local plans short: the planner emits at most eight one-line steps, and
+# Keep local plans bounded: the planner emits at most twelve one-line steps, and
 # long generations multiply latency on a phone.
 PLANNER_TEMPERATURE  = 0.2
-PLANNER_MAX_TOKENS   = int(os.environ.get("KUZA_PLANNER_MAX_TOKENS", "320"))
+PLANNER_MAX_TOKENS   = int(os.environ.get("KUZA_PLANNER_MAX_TOKENS", "480"))
 PLANNER_TIMEOUT_SECONDS = max(
     5,
     min(120, int(os.environ.get("KUZA_PLANNER_TIMEOUT", "45"))),

@@ -10,7 +10,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.orchestrator import is_complex, CONVERSATIONAL_PATTERNS, _postprocess_plan
+from core.orchestrator import (
+    PLAN_MAX_STEPS,
+    CONVERSATIONAL_PATTERNS,
+    _postprocess_plan,
+    is_complex,
+)
 
 
 class TestOrchestrationHeuristics:
@@ -188,11 +193,14 @@ class TestPostprocessPlan:
         run_steps = [s for s in result if s.lower().startswith("run:")]
         assert len(run_steps) == 2
 
-    def test_cap_at_eight(self):
-        """Plans with more than 8 steps are capped at 8."""
-        steps = [f"Create file{i}.py: step {i}" for i in range(12)]
+    def test_cap_at_configured_plan_limit(self):
+        """Long plans are capped at the goal-driven planning limit."""
+        steps = [
+            f"Create file{i}.py: step {i}"
+            for i in range(PLAN_MAX_STEPS + 5)
+        ]
         result = _postprocess_plan(steps)
-        assert len(result) <= 8
+        assert len(result) == PLAN_MAX_STEPS
 
     def test_different_files_all_kept(self):
         """Steps for different files are kept separately."""

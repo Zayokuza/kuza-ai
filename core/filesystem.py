@@ -21,6 +21,7 @@ from utils.logger import info, warning, error, success
 from utils.config import WORKSPACE_ROOT, CODE_DIR
 from core.filehistory import snapshot as _snapshot
 from core.checkpoint import create_checkpoint, is_core_file as _is_core_file
+from core.save_state import create_save_state
 
 
 class FilesystemAccessError(Exception):
@@ -54,6 +55,51 @@ class Filesystem:
         self.allow_self_modification = allow_self_modification
         self._last_diff: Optional[str] = None
         self._last_checkpoint_id: Optional[str] = None
+        self._last_save_state_id: Optional[str] = None
+
+
+    def _save_before_mutation(self, path: Path, operation: str) -> str:
+        """Create a persistent backup before any mutation.
+
+        Normal project edits are scoped to the active workspace. Explicit
+        self-modification is scoped to Kuza's own code root so the checkpoint
+        and save-state layers protect the same file.
+        """
+        candidate = path.expanduser().resolve(strict=False)
+        project_root = Path(self.workspace).expanduser().resolve()
+        save_root = project_root
+        try:
+            candidate.relative_to(project_root)
+        except ValueError:
+            code_root = CODE_DIR.expanduser().resolve()
+            try:
+                candidate.relative_to(code_root)
+            except ValueError as exc:
+                raise FilesystemAccessError(
+                    f"Cannot save a file outside the project or Kuza code root: {candidate}"
+                ) from exc
+            if not self.allow_self_modification:
+                raise FilesystemAccessError(
+                    "Kuza source modification requires explicit self-modification mode"
+                )
+            save_root = code_root
+
+        try:
+            state = create_save_state(
+                [candidate],
+                reason=f"{operation}: {candidate.name}",
+                workspace=save_root,
+            )
+            self._last_save_state_id = state.save_state_id
+            info(
+                f"Save state {state.save_state_id} created before "
+                f"{operation.lower()} of {path}"
+            )
+            return state.save_state_id
+        except Exception as exc:
+            raise FilesystemAccessError(
+                f"Failed to create save state before modifying {path}: {exc}"
+            ) from exc
 
     def _require_checkpoint(self, path: Path) -> str:
         """
@@ -198,6 +244,7 @@ class Filesystem:
         """
         try:
             path = self._validate_path(path)
+            save_state_id = self._save_before_mutation(path, "Write")
 
             # Check if modifying Kuza's own code (requires checkpoint)
             is_core = _is_core_file(str(path))
@@ -220,7 +267,7 @@ class Filesystem:
                 rel = path.relative_to(self.workspace)
             except ValueError:
                 rel = path
-            msg = f"Written {rel}"
+            msg = f"Written {rel} [save state: {save_state_id}]"
             success(msg)
             return msg
 
@@ -251,6 +298,8 @@ class Filesystem:
 
             if not path.exists():
                 raise FilesystemAccessError(f"File not found: {path}")
+
+            save_state_id = self._save_before_mutation(path, "Patch")
 
             # Check if modifying core files (requires checkpoint)
             is_core = _is_core_file(str(path))
@@ -283,9 +332,9 @@ class Filesystem:
                 rel = path.relative_to(self.workspace)
             except ValueError:
                 rel = path
-            msg = f"Patched {rel}"
+            msg = f"Patched {rel} [save state: {save_state_id}]"
             success(msg)
-            return diff
+            return msg + "\n" + diff
 
         except FilesystemAccessError:
             raise
@@ -310,6 +359,7 @@ class Filesystem:
         """
         try:
             path = self._validate_path(path)
+            save_state_id = self._save_before_mutation(path, "Append")
 
             # Check if modifying core files (requires checkpoint)
             is_core = _is_core_file(str(path))
@@ -324,7 +374,7 @@ class Filesystem:
                     rel = path.relative_to(self.workspace)
                 except ValueError:
                     rel = path
-                return f"Created {rel}"
+                return f"Created {rel} [save state: {save_state_id}]"
 
             # Append to existing file
             with open(path, 'a', encoding='utf-8') as f:
@@ -334,7 +384,7 @@ class Filesystem:
                 rel = path.relative_to(self.workspace)
             except ValueError:
                 rel = path
-            msg = f"Appended to {rel}"
+            msg = f"Appended to {rel} [save state: {save_state_id}]"
             success(msg)
             return msg
 
@@ -439,6 +489,10 @@ class Filesystem:
     def get_last_diff(self) -> Optional[str]:
         """Get the diff from the last patch operation."""
         return self._last_diff
+
+    def get_last_save_state_id(self) -> Optional[str]:
+        """Return the most recent persistent save-state ID."""
+        return self._last_save_state_id
 
 
 # Global filesystem instance

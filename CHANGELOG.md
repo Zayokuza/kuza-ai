@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Goal-Driven Autonomy
+
+- Added active and guided autonomy profiles with configurable step, retry,
+  context, and validation budgets.
+- Added durable, file-scoped save states before every project mutation, plus
+  `/save-states` and `/restore-state <id>`.
+- Added deterministic Python, JSON, shell, JavaScript, Go, and Rust validation.
+- Added a shared redacted evidence channel between the main agent and Python
+  sidecar.
+- Added relevant experience retrieval so validated prior outcomes influence
+  future tasks instead of remaining write-only logs.
+- Added search persistence, DuckDuckGo-to-Bing fallback, deeper repository
+  context, and mandatory reusable-code inspection before implementation.
+- Expanded daemon support for common development, test, lint, and build tools
+  while retaining destructive-command and workspace protections.
+- Fixed incomplete daemon work being recorded as successful.
+- Added explicit save-state and execution evidence to orchestrated results.
+
 ## [v2.0.0] - 2026-04-01
 
 ### Initial Public Release

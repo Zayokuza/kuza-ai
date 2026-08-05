@@ -23,6 +23,7 @@ class SidecarJob:
     args: tuple[Any, ...] = field(default_factory=tuple, compare=False)
     kwargs: dict[str, Any] = field(default_factory=dict, compare=False)
     created_at: float = field(default_factory=time.time, compare=False)
+    context: dict[str, Any] = field(default_factory=dict, compare=False)
 
 
 class SidecarQueue:
@@ -39,6 +40,7 @@ class SidecarQueue:
         function: Callable[..., Any],
         *args: Any,
         priority: int = 100,
+        context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
         """Submit a background job and return its unique ID."""
@@ -56,6 +58,7 @@ class SidecarQueue:
                 function=function,
                 args=args,
                 kwargs=kwargs,
+                context=dict(context or {}),
             )
         )
 

@@ -54,6 +54,8 @@
 | `/read <file>` | Load a file into the current context |
 | `/diff [file]` | Show what Kuza changed in this session |
 | `/undo [file]` | Restore a file to its previous version |
+| `/save-states` | List durable pre-change backups |
+| `/restore-state <id>` | Restore a durable save state |
 | `/search <pattern>` | Grep across all project files |
 | `/context` | Show which files are currently loaded |
 | `/clear` | Clear conversation history and session state |

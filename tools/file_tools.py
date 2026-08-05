@@ -24,8 +24,9 @@ BINARY_FILE_TYPES = {
     '.pdf',                                  # PDFs
 }
 
-# Files that must never be silently overwritten — always prompt regardless of yolo.
-# These are repo/project metadata files whose loss is hard to recover without git history.
+# Project metadata gets an extra prompt in guided mode. Active mode relies on
+# persistent pre-change save states plus validation so these files do not stall
+# an autonomous plan. Sensitive environment files always require confirmation.
 WRITE_PROTECTED = {
     ".gitignore",
     "README.md", "readme.md",
@@ -35,6 +36,7 @@ WRITE_PROTECTED = {
     "Makefile",
     ".env",
 }
+SENSITIVE_WRITE_PROTECTED = {".env"}
 
 # Text source file extensions that receive \" → " decode on write.
 # The 7B model sometimes double-encodes JSON, leaving literal \" in content.
@@ -106,17 +108,24 @@ def tool_write_file(path: str, content: str) -> str:
 
     # Block writes that would replace a file with drastically smaller content
     # (e.g., overwriting 500-line app.py with just a shebang line)
-    if file_exists and p.suffix in ('.py', '.js', '.ts', '.html', '.css'):
+    if (
+        file_exists
+        and p.suffix in ('.py', '.js', '.ts', '.html', '.css')
+        and not AGENT_CONFIG.get("allow_large_rewrites", False)
+    ):
         try:
             existing_size = p.stat().st_size
             new_size = len(content.encode('utf-8'))
-            # If existing file is > 200 bytes and new content is < 20% of it, block
+            # Guided mode protects against accidental stub rewrites. Active mode
+            # permits intentional redesigns because a durable save state is made
+            # immediately before the write.
             if existing_size > 200 and new_size < existing_size * 0.2:
                 return (
                     f"[ERROR] Refusing to overwrite {p.name} ({existing_size} bytes) "
                     f"with much smaller content ({new_size} bytes). "
                     f"This looks like a stub or incomplete rewrite. "
-                    f"Write the COMPLETE file content, or use patch_file for small edits."
+                    f"Write the COMPLETE file content, use patch_file, or enable "
+                    f"KUZA_ALLOW_LARGE_REWRITES=1."
                 )
         except Exception:
             pass
@@ -132,8 +141,17 @@ def tool_write_file(path: str, content: str) -> str:
             )
         return f"[ERROR] Cannot write {p.name} as a text file.{hint}"
 
-    # Protected files: always confirm before overwriting.
-    if file_exists and p.name in WRITE_PROTECTED:
+    # Sensitive files always require consent. Other project metadata prompts
+    # only in guided mode; active mode has persistent save-state recovery.
+    if file_exists and p.name in SENSITIVE_WRITE_PROTECTED:
+        log_warning(f"Attempting to overwrite sensitive file: {path}")
+        if not ask_confirm(f"Really overwrite {p.name}?"):
+            return f"[CANCELLED] Overwrite of {path} cancelled."
+    elif (
+        file_exists
+        and p.name in WRITE_PROTECTED
+        and AGENT_CONFIG.get("confirm_protected_writes", True)
+    ):
         log_warning(f"Attempting to overwrite protected file: {path}")
         if not ask_confirm(f"Really overwrite {p.name}?"):
             return f"[CANCELLED] Overwrite of {path} cancelled."

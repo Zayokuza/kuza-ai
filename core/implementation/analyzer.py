@@ -142,7 +142,7 @@ def analyze_repository(root: str | Path = ".") -> RepositoryAnalysis:
     return repository
 
 
-def analyze_repository_async(root="."):
+def analyze_repository_async(root=".", *, goal=""):
     """
     Submit repository analysis to the Sidecar.
     Returns a job ID immediately.
@@ -153,4 +153,5 @@ def analyze_repository_async(root="."):
         analyze_repository,
         root,
         priority=10,
+        context={"goal": goal, "root": str(root)},
     )

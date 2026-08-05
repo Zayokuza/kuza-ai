@@ -10,6 +10,7 @@ from typing import Any
 
 from core.observability.logger import log_event, new_session_id
 from core.sidecar.queue import SidecarJob, SidecarQueue
+from core.sidecar.evidence import get_evidence_channel
 
 
 @dataclass
@@ -72,6 +73,15 @@ class SidecarWorker:
         session_id = new_session_id()
         started = time.monotonic()
 
+        channel = get_evidence_channel()
+        channel.publish(
+            "sidecar",
+            "job_started",
+            f"{job.name} started",
+            task_id=job.job_id,
+            details=job.context,
+        )
+
         log_event(
             "sidecar_job_start",
             session_id=session_id,
@@ -92,6 +102,21 @@ class SidecarWorker:
                 elapsed_seconds=round(elapsed, 3),
             )
 
+            if hasattr(value, "files") and hasattr(value, "symbols"):
+                summary = (
+                    f"{job.name} completed: {len(value.files)} files, "
+                    f"{sum(len(items) for items in value.symbols.values())} symbols"
+                )
+            else:
+                summary = f"{job.name} completed in {result.elapsed_seconds}s"
+            channel.publish(
+                "sidecar",
+                "job_completed",
+                summary,
+                task_id=job.job_id,
+                details=job.context,
+            )
+
             log_event(
                 "sidecar_job_end",
                 session_id=session_id,
@@ -110,6 +135,14 @@ class SidecarWorker:
                 status="failed",
                 error=str(exc),
                 elapsed_seconds=round(elapsed, 3),
+            )
+
+            channel.publish(
+                "sidecar",
+                "job_failed",
+                f"{job.name} failed: {exc}",
+                task_id=job.job_id,
+                details=job.context,
             )
 
             log_event(

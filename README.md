@@ -156,6 +156,8 @@ All three run as independent llama-server processes, managed and watchdog-monito
 - **RAG retrieval** — local knowledge base searched on every inference call; relevant docs injected automatically
 - **Recursive self-refinement** — draft → critique → refine cycle catches bugs before they hit your files
 - **Error recovery** — adaptive strategy switching when tools fail (write → patch, import error → install, etc.)
+- **Goal-driven autonomy** — inspect reusable code, create durable pre-change save states, implement, validate, retry with new evidence, and report real results
+- **Shared sidecar evidence** — background Python analysis and the main agent exchange redacted findings through one durable channel
 - **Peer CLI escalation** — delegates work to Claude Code, Gemini CLI, or Qwen CLI either on-demand ("ask Claude to X") or automatically when Kuza-AI exhausts its retry budget. The peer receives current project file contents and returns complete, ready-to-apply code blocks that Kuza-AI writes to disk. Requires explicit user consent before any files are shared (external services — see [Security](docs/security.md))
 - **Git integration** — branch management, AI commit messages, conflict detection and resolution
 - **Voice interface** — TTS output and STT input via Termux:API
@@ -173,6 +175,7 @@ All three run as independent llama-server processes, managed and watchdog-monito
 | [Commands](docs/commands.md) | Full reference: `kuzad2`, `kuza2`, slash commands, flags, env vars |
 | [Configuration](docs/configuration.md) | Config JSON, model tuning, context management, thermal settings |
 | [Architecture](docs/architecture.md) | System diagram, memory tiers, project structure, Python API |
+| [Goal-Driven Autonomy](docs/GOAL_DRIVEN_AUTONOMY.md) | Save states, validation gates, search persistence, sidecar communication, autonomy profiles |
 | [Knowledge Base](docs/knowledge-base.md) | Setting up RAG, indexing docs, skill repos |
 | [Fine-tuning](docs/fine-tuning.md) | Export data, Colab training, import adapter, rollback |
 | [Pipeline](docs/pipeline.md) | Training data pipeline — build fine-tuning datasets from HuggingFace + synthetic data |

@@ -1,23 +1,27 @@
 """
 Orchestrator — plans complex tasks into subtask queues and executes them.
 """
+import os
 import re
 from pathlib import Path
 from core.taskqueue import TaskQueue, STATUS_PENDING, STATUS_RUNNING
 from utils.logger import info, warning
+from utils.config import AGENT_CONFIG
 
 from prompts.system_prompt import GUIDANCE_HTTP_SERVER, GUIDANCE_HTTP_TESTING, GUIDANCE_SQLITE, GUIDANCE_PERSISTENCE
 
-PLAN_PROMPT = """Break the task into 2-8 numbered steps. Max 8 steps.
+PLAN_MAX_STEPS = 12
+
+PLAN_PROMPT = """Break the task into 2-12 numbered steps. Max 12 steps.
 Each step must be a single concrete action: research information, inspect files, create a checkpoint, create or edit a file, run a command, validate results, roll back, or delegate to a peer CLI.
 Each step is ONE short sentence describing WHAT to do. Do NOT write any code in the plan.
 
 PLANNING WORKFLOW:
-- Inspect existing project files before implementing changes.
+- Inspect existing project files and reusable code before implementing changes.
 - Research official documentation or reliable sources when required information is missing, unfamiliar, current, or uncertain.
-- Create a Git checkpoint before adding or modifying files.
+- A persistent save state is created automatically before every file mutation.
 - Implement every part required by the user's overall goal.
-- Run syntax checks and relevant tests after implementation.
+- Run syntax checks and relevant tests after implementation; include real output in the report.
 - Verify the real output or behavior instead of assuming success.
 - If validation fails, fix and retry; roll back to the checkpoint if the change cannot be validated.
 - Report missing tools, permissions, dependencies, data, or capabilities instead of pretending completion.
@@ -132,7 +136,7 @@ def parse_task_list(model_output):
         m = re.match(r'^(\d+)[.)\s]+(.+)$', line)
         if m and len(m.group(2)) > 5:
             tasks.append(m.group(2).strip())
-    return _postprocess_plan(tasks[:8])
+    return _postprocess_plan(tasks[:PLAN_MAX_STEPS])
 
 
 # Filename extraction pattern
@@ -181,7 +185,7 @@ def _postprocess_plan(tasks):
             for f in files_in_step:
                 seen_files[f] = idx
 
-    return merged[:8]
+    return merged[:PLAN_MAX_STEPS]
 
 def _ensure_validation_step(task_list, user_message):
     """Ensure Python code plans end with a concrete validation command."""
@@ -217,11 +221,11 @@ def _ensure_validation_step(task_list, user_message):
         else:
             command = "Run: python -m compileall -q ."
 
-        # Reserve the eighth and final slot for validation.
-        task_list = task_list[:7]
+        # Reserve the final slot for validation.
+        task_list = task_list[:PLAN_MAX_STEPS - 1]
         task_list.append(command)
 
-    return task_list[:8]
+    return task_list[:PLAN_MAX_STEPS]
 
 
 def plan_tasks(user_message, project_context=''):
@@ -311,45 +315,76 @@ def plan_tasks(user_message, project_context=''):
     queue.save()
     return queue
 
-_SKIP_DIRS = frozenset({'__pycache__', '.git', 'node_modules', '.venv', 'venv', '.mypy_cache'})
-_COLLECT_SUFFIXES = frozenset(('.py', '.js', '.ts', '.html', '.css', '.json', '.md'))
+_SKIP_DIRS = frozenset({
+    '__pycache__', '.git', 'node_modules', '.venv', 'venv',
+    '.mypy_cache', '.pytest_cache', 'dist', 'build',
+})
+_COLLECT_SUFFIXES = frozenset((
+    '.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json',
+    '.md', '.sh', '.yaml', '.yml', '.toml', '.ini', '.cfg',
+))
 
-def _collect_project_files(max_chars=6000):
-    """Read small project files to inject as context between subtasks.
-    Recurses one level into subdirectories (e.g. src/, lib/) while skipping
-    common noise directories.
+
+def _collect_project_files(max_chars=None):
+    """Collect bounded project context across nested source directories.
+
+    Directory traversal is pruned deterministically and capped by characters,
+    so deeper ``src/`` layouts are visible without flooding the model context.
     """
+    if max_chars is None:
+        max_chars = AGENT_CONFIG.get("project_context_chars", 16000)
+
     parts = []
     total = 0
     cwd = Path.cwd()
+    candidates = []
 
-    def _add(f):
-        nonlocal total
-        if f.name.startswith('.') or f.suffix not in _COLLECT_SUFFIXES:
-            return
+    for root_text, dirs, files in os.walk(cwd):
+        root = Path(root_text)
         try:
-            content = f.read_text(encoding='utf-8', errors='replace')
-            if len(content) > 3000:
-                content = content[:3000] + '\n...[truncated]'
-            if total + len(content) > max_chars:
-                return
-            rel = f.relative_to(cwd)
-            parts.append(f"=== {rel} ===\n{content}")
-            total += len(content)
-        except Exception:
-            pass
+            relative_root = root.relative_to(cwd)
+        except ValueError:
+            continue
 
-    for entry in sorted(cwd.iterdir()):
+        dirs[:] = sorted(
+            name for name in dirs
+            if name not in _SKIP_DIRS and not name.startswith('.')
+        )
+        # Four nested levels covers normal src/package/module layouts while
+        # avoiding vendored trees that escaped the name filters.
+        if len(relative_root.parts) >= 4:
+            dirs[:] = []
+
+        for name in sorted(files):
+            path = root / name
+            relative = path.relative_to(cwd)
+            if (
+                name.startswith('.')
+                or path.suffix not in _COLLECT_SUFFIXES
+                or any(part in _SKIP_DIRS for part in relative.parts)
+            ):
+                continue
+            candidates.append(path)
+
+    candidates.sort(key=lambda path: (len(path.relative_to(cwd).parts), str(path)))
+
+    for path in candidates:
         if total >= max_chars:
             break
-        if entry.is_file():
-            _add(entry)
-        elif entry.is_dir() and entry.name not in _SKIP_DIRS and not entry.name.startswith('.'):
-            for f in sorted(entry.iterdir()):
-                if total >= max_chars:
-                    break
-                if f.is_file():
-                    _add(f)
+        try:
+            content = path.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        if len(content) > 5000:
+            content = content[:5000] + '\n...[truncated]'
+        if total + len(content) > max_chars:
+            remaining = max_chars - total
+            if remaining < 300:
+                break
+            content = content[:remaining] + '\n...[truncated]'
+        relative = path.relative_to(cwd)
+        parts.append(f"=== {relative} ===\n{content}")
+        total += len(content)
 
     return '\n\n'.join(parts)
 
@@ -420,6 +455,13 @@ def run_queue(queue, yolo=False):
 
     prior_results = []
     interrupted = False
+    try:
+        from core.save_state import list_save_states
+        _save_states_before = {
+            state.save_state_id for state in list_save_states(limit=200)
+        }
+    except Exception:
+        _save_states_before = set()
 
     def handle_interrupt(sig, frame):
         nonlocal interrupted
@@ -578,4 +620,23 @@ def run_queue(queue, yolo=False):
         signal.signal(signal.SIGINT, old_handler)
 
     queue.completion_audit_passed = _completion_audit(queue)
+    try:
+        from core.save_state import list_save_states
+        queue.new_save_states = [
+            state
+            for state in list_save_states(limit=200)
+            if state.save_state_id not in _save_states_before
+        ]
+    except Exception:
+        queue.new_save_states = []
+    queue.execution_evidence = [
+        {
+            "id": task.id,
+            "description": task.description,
+            "status": task.status,
+            "result": task.result,
+            "error": task.error,
+        }
+        for task in queue.tasks
+    ]
     return queue

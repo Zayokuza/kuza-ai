@@ -13,6 +13,7 @@ These are restored after each task so they never bleed into interactive sessions
 """
 
 import asyncio
+import os
 from typing import Optional, Dict
 
 from utils.logger import info, warning, error, success
@@ -22,6 +23,10 @@ from core.daemon_config import DaemonConfig
 from core.thermal import start_inference, end_inference
 
 
+class IncompleteTaskError(RuntimeError):
+    """Raised when the agent exhausts its budget without verified completion."""
+
+
 # ---------------------------------------------------------------------------
 # Daemon shell allowlist
 # Commands the daemon may run without user confirmation.
@@ -29,8 +34,10 @@ from core.thermal import start_inference, end_inference
 #
 # Rationale for each prefix:
 #   python / python3  — run scripts / test files the agent just wrote
-#   pip / pip3        — install packages the agent determines are missing
+#   pip / pip3        — install/check packages the agent determines are missing
 #   pytest            — run the test suite as part of TDD/fix loops
+#   node/npm/cargo/go  — common build, check, and test workflows
+#   ruff/mypy/black/flake8 — local static analysis
 #   ls / cat / echo   — read-only inspection of files and directories
 #   grep              — search file contents; read-only
 #   find              — locate files; read-only (daemon never passes -delete)
@@ -45,10 +52,23 @@ from core.thermal import start_inference, end_inference
 # prevents accidental destructive shell commands (rm, curl, chmod, etc.).
 # ---------------------------------------------------------------------------
 _DAEMON_ALLOWED_COMMANDS = {
-    "python", "python3", "pytest", "ls", "cat", "echo", "grep", "find",
-    "pwd", "which", "printenv",
+    "python", "python3", "pytest", "pip", "pip3",
+    "node", "npm", "cargo", "go",
+    "ruff", "mypy", "black", "flake8",
+    "ls", "cat", "echo", "grep", "find", "pwd", "which", "printenv",
 }
 _DAEMON_GIT_SUBCOMMANDS = {"status", "log", "diff", "show"}
+_DAEMON_SUBCOMMANDS = {
+    "pip": {"install", "check", "list", "show", "freeze", "download"},
+    "pip3": {"install", "check", "list", "show", "freeze", "download"},
+    "npm": {"test", "run", "install", "ci", "list", "view"},
+    "cargo": {"test", "check", "build", "fmt", "clippy"},
+    "go": {"test", "build", "vet", "fmt", "list"},
+}
+_DAEMON_NEVER_ALLOW = {
+    "rm", "rmdir", "dd", "mkfs", "mount", "umount", "reboot",
+    "shutdown", "su", "sudo",
+}
 
 
 def _daemon_command_allowed(command: str) -> bool:
@@ -68,11 +88,28 @@ def _daemon_command_allowed(command: str) -> bool:
         return False
 
     executable = Path(argv[0]).name
+    if executable in _DAEMON_NEVER_ALLOW:
+        return False
     if executable == "git":
         return len(argv) >= 2 and argv[1] in _DAEMON_GIT_SUBCOMMANDS
-    if executable not in _DAEMON_ALLOWED_COMMANDS:
+
+    configured = {
+        item.strip()
+        for item in os.environ.get("KUZA_DAEMON_ALLOW", "").split(",")
+        if item.strip()
+    }
+    if executable not in _DAEMON_ALLOWED_COMMANDS and executable not in configured:
         return False
 
+    allowed_subcommands = _DAEMON_SUBCOMMANDS.get(executable)
+    if allowed_subcommands is not None:
+        if len(argv) < 2 or argv[1] not in allowed_subcommands:
+            return False
+
+    if executable == "node" and any(
+        flag in argv for flag in ("-e", "--eval", "-p", "--print")
+    ):
+        return False
     if executable == "find" and any(
         flag in argv for flag in ("-delete", "-exec", "-execdir", "-ok", "-okdir")
     ):
@@ -149,6 +186,8 @@ class TaskExecutor:
                         _in_subtask=True,  # suppress git prompts; scale max_steps
                     ),
                 )
+                if response.lstrip().startswith("[INCOMPLETE]"):
+                    raise IncompleteTaskError(response)
                 return response
             finally:
                 AGENT_CONFIG.update(_saved)
