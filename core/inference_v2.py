@@ -60,19 +60,83 @@ _REFUSAL_RECOVERY_INSTRUCTION = (
 )
 
 
+# KUZA_AUTHORIZED_NETWORK_REFUSAL_V4
+_KUZA_POLICY_DEAD_END_RE = re.compile(
+    r"(?:"
+    r"\bnot\s+(?:within|allowed by|permitted by)\s+(?:my|the)\s+"
+    r"(?:programming\s+)?(?:guidelines?|polic(?:y|ies)|rules?|scope)\b"
+    r"|"
+    r"\b(?:assisting|helping|providing\s+(?:help|guidance|instructions?))"
+    r"\s+with\s+(?:such|that|this|those)\s+(?:activities|activity|request|task)"
+    r"\s+is\s+not\s+(?:within|allowed|permitted)\b"
+    r"|"
+    r"\b(?:outside|beyond)\s+(?:my|the)\s+"
+    r"(?:programming\s+)?(?:guidelines?|polic(?:y|ies)|scope|capabilities)\b"
+    r"|"
+    r"\bnot\s+something\s+(?:i|we)\s+(?:can|am able to)\s+"
+    r"(?:assist|help)\s+with\b"
+    r"|"
+    r"\b(?:cannot|can't|unable to)\s+provide\s+"
+    r"(?:guidance|instructions?|assistance|help)\b"
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_KUZA_NETWORK_DIAGNOSTIC_RE = re.compile(
+    r"\b(?:dns|resolver|resolution|nameserver|ip|routing|route|"
+    r"proxy|endpoint|connectivity|network|captcha)\b",
+    re.IGNORECASE,
+)
+
+_KUZA_AUTHORIZED_SCOPE_RE = re.compile(
+    r"\b(?:authorized|authorised|my\s+(?:system|device|network|server|project)|"
+    r"own\s+(?:system|device|network|server|project)|diagnos(?:e|is|tic)|"
+    r"troubleshoot|do\s+not\s+bypass|don't\s+bypass|manual\s+completion|"
+    r"require\s+manual)\b",
+    re.IGNORECASE,
+)
+
+def _kuza_authorized_network_fallback(messages: list[dict]) -> str:
+    user_message = _last_user_message(messages)
+    if not _KUZA_NETWORK_DIAGNOSTIC_RE.search(user_message):
+        return ""
+    if not _KUZA_AUTHORIZED_SCOPE_RE.search(user_message):
+        return ""
+    return (
+        "Proceeding with authorized DNS/IP troubleshooting. No access-control "
+        "or CAPTCHA bypass is required.\n\n"
+        "1. DNS resolution: confirm the configured resolver, then compare a "
+        "hostname lookup with direct IP connectivity. Check for timeouts, "
+        "SERVFAIL, NXDOMAIN, stale cache entries, and incorrect search domains.\n"
+        "2. IP and routing: inspect interface addresses, the default route, "
+        "gateway reachability, and whether IPv4 or IPv6 is failing separately.\n"
+        "3. Retries: use a bounded retry count with exponential backoff and "
+        "jitter. Do not retry a confirmed permanent DNS answer such as NXDOMAIN.\n"
+        "4. Proxy health: test each approved proxy independently, record latency "
+        "and status codes, quarantine failing endpoints, and rotate only after "
+        "timeouts, connection failures, or explicit rate-limit responses.\n"
+        "5. Endpoint failures: distinguish DNS, TCP, TLS, HTTP, and application "
+        "errors before changing routes or proxies.\n"
+        "6. CAPTCHA: detect the challenge, stop automated requests, preserve the "
+        "session, and require manual completion or an approved site API. Do not "
+        "attempt to bypass the challenge.\n\n"
+        "Useful Termux checks on your own device include `getprop | grep -i dns`, "
+        "`nslookup <host>` or `dig <host>`, `ip addr`, `ip route`, "
+        "`ping -c 1 1.1.1.1`, and `curl -I https://<authorized-host>`."
+    )
+
+
 def is_dead_end_refusal(text: str) -> bool:
-    """Return True only for a refusal that offers no useful next action."""
+    # Generic refusal detection, including policy/guideline wording.
     if not isinstance(text, str) or not text.strip():
         return False
-
     normalized = " ".join(text.lower().split())
-    if not _DEAD_END_REFUSAL_RE.search(normalized):
-        return False
-
     if "<tool>" in normalized:
         return False
-
-    return True
+    return bool(
+        _DEAD_END_REFUSAL_RE.search(normalized)
+        or _KUZA_POLICY_DEAD_END_RE.search(normalized)
+    )
 
 
 def _last_user_message(messages: list[dict]) -> str:
@@ -122,13 +186,11 @@ def _recover_dead_end_refusal(
     result: str,
     retry_call,
 ) -> str:
-    """Retry one dead-end refusal, then return a deterministic useful fallback."""
+    # Retry once, then use a deterministic authorized fallback when applicable.
     if not is_dead_end_refusal(result):
         return result
 
-    warning(
-        "Dead-end response detected — running one authorized resolution retry"
-    )
+    warning("Dead-end response detected — running one authorized resolution retry")
     retry_messages = list(messages)
     retry_messages.append({"role": "assistant", "content": result})
     retry_messages.append({
@@ -145,7 +207,18 @@ def _recover_dead_end_refusal(
     if retry_result and not is_dead_end_refusal(retry_result):
         return retry_result
 
+    network_fallback = _kuza_authorized_network_fallback(messages)
+    if network_fallback:
+        warning(
+            "Model repeated a dead-end response — using authorized network "
+            "troubleshooting fallback"
+        )
+        return network_fallback
+
     warning("Model repeated a dead-end response — using deterministic resolution")
+    resolver = globals().get("build_resolution_fallback")
+    if callable(resolver):
+        return resolver(messages, retry_result or result)
     return _fallback_after_refusal(messages)
 
 
