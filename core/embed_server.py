@@ -108,6 +108,7 @@ class EmbedServer:
             stderr=subprocess.STDOUT,
             preexec_fn=os.setsid if os.name != "nt" else None,
         )
+        log_fd.close()
 
         info(f"Embed server PID: {self.process.pid}, log: {log_file}")
 
@@ -171,53 +172,41 @@ class EmbedServer:
     # ── Health helpers ─────────────────────────────────────────────────────────
 
     def _kill_port_occupant(self):
-        """Kill any llama-server bound to the embed port.
-
-        Uses /proc scan to find the exact PID holding the port, avoiding
-        unreliable pkill -f regex matching on Termux/Android.
-        """
-        import subprocess as _sp
-
-        # Method 1: parse /proc/net/tcp to find PID on our port
-        try:
-            port_hex = f"{self.port:04X}"
-            with open("/proc/net/tcp") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) < 10:
-                        continue
-                    local_addr = parts[1]
-                    if local_addr.endswith(f":{port_hex}"):
-                        inode = parts[9]
-                        # Find PID owning this inode
-                        for pid_dir in Path("/proc").iterdir():
-                            if not pid_dir.name.isdigit():
-                                continue
-                            try:
-                                for fd in (pid_dir / "fd").iterdir():
-                                    link = os.readlink(str(fd))
-                                    if f"socket:[{inode}]" in link:
-                                        pid = int(pid_dir.name)
-                                        info(f"Killing stale embed server PID {pid}")
-                                        os.kill(pid, 9)
-                                        raise StopIteration
-                            except (PermissionError, StopIteration, OSError):
-                                pass
-                        break
-        except StopIteration:
-            pass
-        except Exception:
-            pass
-
-        # Method 2: fallback — kill all llama-server processes
-        # This is aggressive but reliable on Termux where fuser/lsof may not exist
-        try:
-            _sp.run(["pkill", "-9", "llama-server"], capture_output=True)
-        except Exception:
-            pass
-
-        import time as _time
-        _time.sleep(2)  # give kernel time to release the port
+        """Kill only the verified llama-server process holding this port."""
+        inode = None
+        port_hex = f"{self.port:04X}"
+        for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+            try:
+                with open(table) as handle:
+                    for line in handle:
+                        parts = line.split()
+                        if len(parts) >= 10 and parts[1].endswith(f":{port_hex}"):
+                            inode = parts[9]
+                            break
+            except OSError:
+                continue
+            if inode:
+                break
+        if not inode:
+            warning(f"Port {self.port} is occupied, but its owner could not be resolved")
+            return
+        for pid_dir in Path("/proc").iterdir():
+            if not pid_dir.name.isdigit():
+                continue
+            try:
+                owns_socket = any(os.readlink(str(fd)) == f"socket:[{inode}]" for fd in (pid_dir / "fd").iterdir())
+                if not owns_socket:
+                    continue
+                cmdline = (pid_dir / "cmdline").read_bytes().replace(b"\x00", b" ").decode("utf-8", errors="replace")
+                if "llama-server" not in cmdline:
+                    warning(f"Refusing to kill PID {pid_dir.name}; it is not llama-server")
+                    return
+                os.kill(int(pid_dir.name), 9)
+                time.sleep(1)
+                return
+            except (OSError, PermissionError):
+                continue
+        warning(f"Could not identify the process holding port {self.port}")
 
     def _check_health(self) -> bool:
         try:

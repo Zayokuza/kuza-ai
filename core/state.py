@@ -261,7 +261,8 @@ class StateStore:
         """Mark a task as running."""
         with self._lock:
             self._conn.execute(
-                "UPDATE task_queue SET status = 'running', started_at = ? WHERE id = ?",
+                "UPDATE task_queue SET status = 'running', started_at = ? "
+                "WHERE id = ? AND status != 'cancelled'",
                 (int(time.time()), task_id),
             )
             self._conn.commit()
@@ -270,7 +271,8 @@ class StateStore:
         """Mark a task as completed."""
         with self._lock:
             self._conn.execute(
-                "UPDATE task_queue SET status = 'done', result = ?, completed_at = ? WHERE id = ?",
+                "UPDATE task_queue SET status = 'done', result = ?, completed_at = ? "
+                "WHERE id = ? AND status != 'cancelled'",
                 (result, int(time.time()), task_id),
             )
             self._conn.commit()
@@ -279,7 +281,8 @@ class StateStore:
         """Mark a task as failed."""
         with self._lock:
             self._conn.execute(
-                "UPDATE task_queue SET status = 'failed', result = ?, completed_at = ? WHERE id = ?",
+                "UPDATE task_queue SET status = 'failed', result = ?, completed_at = ? "
+                "WHERE id = ? AND status != 'cancelled'",
                 (error, int(time.time()), task_id),
             )
             self._conn.commit()
@@ -294,23 +297,28 @@ class StateStore:
             self._conn.commit()
 
     def cancel_task(self, task_id: int) -> bool:
-        """
-        Cancel a task (pending or running).
-        Returns True if cancelled, False if already done/failed.
-        """
+        """Make a pending or running task terminally cancelled."""
         task = self.get_task(task_id)
-        if not task or task["status"] in ("done", "failed"):
+        if not task or task["status"] in ("done", "failed", "cancelled"):
             return False
-        # Mark cancellation flag so executor can detect it
         self.set(f"task_cancelled_{task_id}", "1")
-        if task["status"] == "running":
-            with self._lock:
-                self._conn.execute(
-                    "UPDATE task_queue SET status = 'failed', result = ?, completed_at = ? WHERE id = ?",
-                    ("Cancelled by user", int(time.time()), task_id),
-                )
-                self._conn.commit()
-        return True
+        with self._lock:
+            cursor = self._conn.execute(
+                """
+                UPDATE task_queue
+                SET status = 'cancelled', result = ?, completed_at = ?
+                WHERE id = ? AND status IN ('pending', 'running')
+                """,
+                ("Cancelled by user", int(time.time()), task_id),
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0
+
+    def is_task_cancelled(self, task_id: int) -> bool:
+        task = self.get_task(task_id)
+        if task and task.get("status") == "cancelled":
+            return True
+        return self.get(f"task_cancelled_{task_id}") == "1"
 
     def get_tasks_by_status(self, status: str) -> List[Dict]:
         """Get all tasks with a given status."""

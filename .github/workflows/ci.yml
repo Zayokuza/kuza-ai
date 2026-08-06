@@ -26,6 +26,6 @@ jobs:
       - name: Check Python syntax
         run: python -m compileall -q core tools utils prompts main.py
       - name: Check shell syntax
-        run: bash -n kuza2 kuzad2 install.sh setup.sh
+        run: bash -n kuza kuza2 kuzad2 install.sh setup.sh
       - name: Run tests
         run: python -m pytest -q

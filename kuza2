@@ -5,6 +5,7 @@ set -u
 umask 077
 
 KUZA_V2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export KUZA_DIR="${KUZA_DIR:-$KUZA_V2_DIR}"
 DAEMON_DIR="${KUZA_STATE_DIR:-$HOME/.kuza-v2}"
 PID_FILE="$DAEMON_DIR/kuza-v2.pid"
 SOCKET_FILE="$DAEMON_DIR/kuza-v2.sock"

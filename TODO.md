@@ -1,3 +1,5 @@
+> Status notice: historical TODO content below may be stale. See `docs/HARDENING_STATUS.md`.
+
 # Kuza-v2 — TODO & Status
 
 **Last updated:** 2026-04-01

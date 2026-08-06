@@ -98,12 +98,10 @@ def tool_write_file(path: str, content: str) -> str:
     Returns:
         Success message or error message
     """
-    from utils.logger import confirm as ask_confirm, warning as log_warning
-
-    p = Path(path)
-    if not p.is_absolute():
-        import os
-        p = Path(os.getcwd()) / path
+    try:
+        p = _get_fs().validate_path(path)
+    except FilesystemAccessError as e:
+        return f"[ERROR] {e}"
     file_exists = p.exists() and p.is_file()
 
     # Block writes that would replace a file with drastically smaller content
@@ -141,29 +139,7 @@ def tool_write_file(path: str, content: str) -> str:
             )
         return f"[ERROR] Cannot write {p.name} as a text file.{hint}"
 
-    # Sensitive files always require consent. Other project metadata prompts
-    # only in guided mode; active mode has persistent save-state recovery.
-    if file_exists and p.name in SENSITIVE_WRITE_PROTECTED:
-        log_warning(f"Attempting to overwrite sensitive file: {path}")
-        if not ask_confirm(f"Really overwrite {p.name}?"):
-            return f"[CANCELLED] Overwrite of {path} cancelled."
-    elif (
-        file_exists
-        and p.name in WRITE_PROTECTED
-        and AGENT_CONFIG.get("confirm_protected_writes", True)
-    ):
-        log_warning(f"Attempting to overwrite protected file: {path}")
-        if not ask_confirm(f"Really overwrite {p.name}?"):
-            return f"[CANCELLED] Overwrite of {path} cancelled."
-
-    # Regular files: confirm if the flag is set.
-    elif file_exists and AGENT_CONFIG.get("confirm_write"):
-        log_warning(f"About to overwrite: {path}")
-        if not ask_confirm(f"Overwrite {path}?"):
-            return f"[CANCELLED] Overwrite of {path} cancelled."
-
-    if p.suffix.lower() in _DECODE_EXTS:
-        content = content.replace('\\"', '"')
+    # Preserve content byte-for-byte; blanket unescaping corrupts code.
 
     try:
         return _get_fs().write(path, content)

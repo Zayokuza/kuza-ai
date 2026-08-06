@@ -49,7 +49,10 @@ TOOLS = {
     "list_dir":     lambda args: tool_list_dir(args.get("path", ".")),
     # Route through AGENT_CONFIG["_shell_fn"] when set (e.g. daemon allowlist guard).
     # Falls back to the standard shell() when no override is installed.
-    "shell":        lambda args: (AGENT_CONFIG.get("_shell_fn") or shell)(args["command"]),
+    "shell":        lambda args: (
+        AGENT_CONFIG.get("_shell_fn")
+        or (lambda command: shell(command, yolo=bool(AGENT_CONFIG.get("_yolo", False))))
+    )(args["command"]),
     "search_files": lambda args: search_files(
         args["pattern"], args.get("path", ".")
     ),
@@ -1004,7 +1007,7 @@ def _auto_apply_peer_code(peer_output, context_message=""):
             except Exception:
                 pass
         fpath = os.path.join(os.getcwd(), fname)
-        result = tool_write_file(fpath, code.rstrip() + '\n')
+        result = execute_tool({"name": "write_file", "args": {"path": fpath, "content": code.rstrip() + "\n"}})
         if result.startswith("[ERROR]") or result.startswith("[CANCELLED]"):
             warning(f"Failed to write {fname} from peer: {result}")
             return False
@@ -1372,6 +1375,7 @@ def _run_authorized_network_diagnostics_v5(user_message: str, executor=None) -> 
 
 
 def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, _in_subtask=False, _plan_rag_block=""):
+    AGENT_CONFIG["_yolo"] = bool(yolo)
     # Reset streaming flag at start of each agent turn
     import core.inference_v2 as _inf_mod
     _inf_mod._last_was_streamed = False
@@ -1674,12 +1678,11 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                         import os as _os
                         _design_fname = f"{_peer_name}_design.md"
                         _design_path = _os.path.join(_os.getcwd(), _design_fname)
-                        try:
-                            with open(_design_path, "w", encoding="utf-8") as _dfile:
-                                _dfile.write(_output)
+                        _design_result = execute_tool({"name": "write_file", "args": {"path": _design_path, "content": _output}})
+                        if _design_result.startswith("[ERROR]") or _design_result.startswith("[CANCELLED]"):
+                            warning(f"Could not save design file: {_design_result}")
+                        else:
                             success(f"Design saved to {_design_fname} ({len(_output)} chars)")
-                        except Exception as _de:
-                            warning(f"Could not save design file: {_de}")
                         # Plan will handle the next step (implement from design)
                         return _summary, history
 

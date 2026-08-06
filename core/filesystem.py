@@ -14,6 +14,7 @@ Removes need for JSON tool-call parsing. Agent calls methods directly.
 
 import os
 import difflib
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -56,6 +57,38 @@ class Filesystem:
         self._last_diff: Optional[str] = None
         self._last_checkpoint_id: Optional[str] = None
         self._last_save_state_id: Optional[str] = None
+
+
+    def _authorize(self, kind: str, path: Path, description: str) -> None:
+        from core.action_policy import ActionRequest, authorize
+        sensitive = path.name in {
+            ".env", "id_rsa", "id_ed25519", "credentials.json", "secrets.py"
+        } or path.suffix.lower() in {".key", ".pem", ".token"}
+        allowed, reason = authorize(ActionRequest(
+            kind=kind,
+            description=description,
+            target=str(path),
+            dangerous=sensitive,
+        ))
+        if not allowed:
+            prefix = "[CANCELLED]" if "declined" in reason.lower() else "[BLOCKED]"
+            raise FilesystemAccessError(f"{prefix} {reason}")
+
+    @staticmethod
+    def _atomic_write_text(path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temp_name = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+        )
+        temp_path = Path(temp_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
 
     def _save_before_mutation(self, path: Path, operation: str) -> str:
@@ -225,7 +258,7 @@ class Filesystem:
         except Exception as e:
             raise FilesystemAccessError(f"Failed to read {path}: {e}")
     
-    def write(self, path: Union[str, Path], content: str) -> str:
+    def write(self, path: Union[str, Path], content: str, *, action_kind: str = "write") -> str:
         """
         Write file content.
 
@@ -244,6 +277,10 @@ class Filesystem:
         """
         try:
             path = self._validate_path(path)
+            self._authorize(
+                action_kind, path,
+                "replace file contents" if path.exists() else "create file",
+            )
             save_state_id = self._save_before_mutation(path, "Write")
 
             # Check if modifying Kuza's own code (requires checkpoint)
@@ -260,8 +297,8 @@ class Filesystem:
             if path.exists():
                 _snapshot(str(path))
 
-            # Write content
-            path.write_text(content, encoding='utf-8')
+            # Write content atomically
+            self._atomic_write_text(path, content)
 
             try:
                 rel = path.relative_to(self.workspace)
@@ -295,6 +332,7 @@ class Filesystem:
         """
         try:
             path = self._validate_path(path)
+            self._authorize("patch", path, "patch existing file")
 
             if not path.exists():
                 raise FilesystemAccessError(f"File not found: {path}")
@@ -325,8 +363,9 @@ class Filesystem:
             )
             self._last_diff = diff
 
-            # Write new content
-            path.write_text(new_content, encoding='utf-8')
+            # Snapshot and write atomically
+            _snapshot(str(path))
+            self._atomic_write_text(path, new_content)
 
             try:
                 rel = path.relative_to(self.workspace)
@@ -359,6 +398,7 @@ class Filesystem:
         """
         try:
             path = self._validate_path(path)
+            self._authorize("append", path, "append to file")
             save_state_id = self._save_before_mutation(path, "Append")
 
             # Check if modifying core files (requires checkpoint)
@@ -369,16 +409,17 @@ class Filesystem:
             # Create if doesn't exist
             if not path.exists():
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content, encoding='utf-8')
+                self._atomic_write_text(path, content)
                 try:
                     rel = path.relative_to(self.workspace)
                 except ValueError:
                     rel = path
                 return f"Created {rel} [save state: {save_state_id}]"
 
-            # Append to existing file
-            with open(path, 'a', encoding='utf-8') as f:
-                f.write(content)
+            # Append atomically
+            _snapshot(str(path))
+            existing = path.read_text(encoding='utf-8')
+            self._atomic_write_text(path, existing + content)
 
             try:
                 rel = path.relative_to(self.workspace)

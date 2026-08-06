@@ -28,8 +28,9 @@ CHECKPOINT_DIR = KUZA_STATE_DIR / "checkpoints"
 # Only Kuza's executable source is considered self-modification. Project files,
 # tests, documentation, and generated files in the repository are deliberately
 # excluded so ordinary work never triggers a checkpoint.
-CORE_DIRECTORIES = {"core", "tools", "utils", "prompts"}
-CORE_ROOT_FILES = {"main.py", "kuza", "kuza2"}
+CORE_DIRECTORIES = {"core", "tools", "utils", "prompts", "gui", ".github"}
+CORE_ROOT_FILES = {"main.py", "kuza", "kuza2", "kuzad2", "install.sh", "setup.sh", "requirements.txt", "requirements-dev.txt", "requirements-pipeline.txt"}
+CORE_TEXT_SUFFIXES = {".py", ".sh", ".html", ".js", ".css", ".json", ".yml", ".yaml", ".toml", ".md", ".txt"}
 MANIFEST_NAME = "manifest.json"
 
 
@@ -55,7 +56,7 @@ def _is_core_relative_path(path: Path) -> bool:
         return False
     if len(path.parts) == 1:
         return path.as_posix() in CORE_ROOT_FILES
-    return path.parts[0] in CORE_DIRECTORIES and path.suffix == ".py"
+    return path.parts[0] in CORE_DIRECTORIES and path.suffix.lower() in CORE_TEXT_SUFFIXES
 
 
 def _resolve_core_path(file_path: str) -> tuple[Path, Path]:

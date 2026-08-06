@@ -583,6 +583,8 @@ class Daemon:
                         self.planner.complete_task(planner_task.id, db.get("result", ""))
                     elif db["status"] == "failed":
                         self.planner.fail_task(planner_task.id, db.get("result", "already failed"))
+                    elif db["status"] == "cancelled":
+                        self.planner.fail_task(planner_task.id, "Cancelled by user")
                 return
 
             # Sync in-memory planner state. planner.start_task() re-runs the SQLite
@@ -593,10 +595,13 @@ class Daemon:
             info(f"Planner: dispatching task {planner_task.id}: {planner_task.description[:50]}...")
             try:
                 result = await asyncio.wait_for(
-                    self.executor._execute_task(planner_task.description),
+                    self.executor._execute_task(planner_task.description, planner_task.id),
                     timeout=timeout,
                 )
-                self.planner.complete_task(planner_task.id, result)
+                if self.state.is_task_cancelled(planner_task.id):
+                    self.planner.fail_task(planner_task.id, "Cancelled by user")
+                else:
+                    self.planner.complete_task(planner_task.id, result)
             except asyncio.TimeoutError:
                 err = f"Task timed out after {timeout}s"
                 error(err)
@@ -620,10 +625,11 @@ class Daemon:
         info(f"Daemon: executing direct task {db_task['id']}: {db_task['description'][:50]}...")
         try:
             result = await asyncio.wait_for(
-                self.executor._execute_task(db_task["description"]),
+                self.executor._execute_task(db_task["description"], db_task["id"]),
                 timeout=timeout,
             )
-            self.state.complete_task(db_task["id"], result)
+            if not self.state.is_task_cancelled(db_task["id"]):
+                self.state.complete_task(db_task["id"], result)
         except asyncio.TimeoutError:
             self.state.fail_task(db_task["id"], f"Task timed out after {timeout}s")
         except Exception as e:

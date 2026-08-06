@@ -138,7 +138,7 @@ class TaskExecutor:
     # Core execution — delegates to the full run_agent() pipeline
     # ------------------------------------------------------------------
 
-    async def _execute_task(self, prompt: str) -> str:
+    async def _execute_task(self, prompt: str, task_id: int | None = None) -> str:
         """
         Execute a single task using the full run_agent() pipeline.
 
@@ -169,10 +169,17 @@ class TaskExecutor:
                 "_shell_fn":     AGENT_CONFIG.get("_shell_fn"),
                 "confirm_shell": AGENT_CONFIG.get("confirm_shell"),
                 "confirm_write": AGENT_CONFIG.get("confirm_write"),
+                "execution_mode": AGENT_CONFIG.get("execution_mode"),
+                "_cancel_check": AGENT_CONFIG.get("_cancel_check"),
+                "_yolo": AGENT_CONFIG.get("_yolo"),
             }
-            AGENT_CONFIG["_shell_fn"]     = self._daemon_shell
-            AGENT_CONFIG["confirm_shell"] = False  # guard is in _daemon_shell
-            AGENT_CONFIG["confirm_write"] = False  # daemon writes without prompting
+            self.current_task = {"id": task_id, "prompt": prompt}
+            AGENT_CONFIG["_shell_fn"] = self._daemon_shell
+            AGENT_CONFIG["confirm_shell"] = False
+            AGENT_CONFIG["confirm_write"] = False
+            AGENT_CONFIG["execution_mode"] = "daemon"
+            AGENT_CONFIG["_yolo"] = True
+            AGENT_CONFIG["_cancel_check"] = ((lambda: self.state.is_task_cancelled(task_id)) if task_id is not None else None)
 
             try:
                 loop = asyncio.get_event_loop()
@@ -186,10 +193,13 @@ class TaskExecutor:
                         _in_subtask=True,  # suppress git prompts; scale max_steps
                     ),
                 )
+                if task_id is not None and self.state.is_task_cancelled(task_id):
+                    return "[CANCELLED] Task cancelled by user."
                 if response.lstrip().startswith("[INCOMPLETE]"):
                     raise IncompleteTaskError(response)
                 return response
             finally:
+                self.current_task = None
                 AGENT_CONFIG.update(_saved)
 
         except Exception as e:
@@ -214,6 +224,9 @@ class TaskExecutor:
         from tools.shell_tools import shell, validate_command_structure
 
         cmd = command.strip()
+        from core.action_policy import cancellation_requested
+        if cancellation_requested():
+            return "[CANCELLED] Task cancelled by user."
         valid, reason = validate_command_structure(cmd)
         if not valid:
             warning(f"Daemon: blocked compound shell command: {cmd[:80]}")

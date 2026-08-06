@@ -128,6 +128,9 @@ AGENT_CONFIG = {
     # invocation. Used by the daemon to enforce an allowlist without modifying
     # the global shell tool. None means use the default shell() function.
     "_shell_fn": None,
+    "execution_mode": "interactive",
+    "_yolo": False,
+    "_cancel_check": None,
 }
 # Never let the soft budget exceed the hard progress cap.
 AGENT_CONFIG["max_steps"] = min(
@@ -190,7 +193,7 @@ RETRIEVAL_CONFIG = {
     "semantic_search":    True,         # prefer embeddings when index exists
     "max_chunks":         4,            # max results per retrieval query
     "budget_chars":       2400,         # max chars of retrieved content (~600 tokens)
-    "embedding_model":    "all-MiniLM-L6-v2",  # legacy key (sentence-transformers era); actual model is EMBED_MODEL_PATH (nomic-embed-text-v1.5)
+    "embedding_model":    "nomic-embed-text-v1.5",  # legacy key (sentence-transformers era); actual model is EMBED_MODEL_PATH (nomic-embed-text-v1.5)
     "min_score":          0.0,          # minimum raw score (keyword: overlap count)
     "semantic_threshold": 0.3,          # minimum cosine similarity per chunk
     "relevance_gate":     0.72,         # min best-chunk cosine to inject anything at all
@@ -198,7 +201,7 @@ RETRIEVAL_CONFIG = {
                                         # the KB has no specifically relevant material)
 }
 
-KUZA_VERSION = "2.0.0"
+KUZA_VERSION = "2.1.0"
 KUZA_NAME = "KUZA"
 
 # ── OpenRouter backend (optional) ────────────────────────────────────────────

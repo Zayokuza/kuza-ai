@@ -373,7 +373,7 @@
       <header className="header">
         <div className="logo-group">
           <span className="logo-wordmark">KUZA-V2</span>
-          <span className="badge">v2.0.0</span>
+          <span className="badge">v2.1.0</span>
           <span className={`badge ${connected ? 'badge-live' : 'badge-dead'}`}>
             {connected ? '● LIVE' : '○ offline'}
           </span>
@@ -555,7 +555,11 @@
     }, []);
 
     const connect = useCallback(() => {
-      const ws = new WebSocket(`ws://${location.host}/ws`);
+      const params = new URLSearchParams(location.search);
+      const token = params.get('token');
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      const query = token ? `?token=${encodeURIComponent(token)}` : '';
+      const ws = new WebSocket(`${protocol}://${location.host}/ws${query}`);
       wsRef.current = ws;
 
       ws.onopen = () => {

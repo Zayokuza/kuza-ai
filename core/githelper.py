@@ -13,6 +13,35 @@ from typing import List, Optional, Tuple
 from utils.logger import success, error, info, warning
 
 
+_SECRET_RE = re.compile(r"(?:sk-(?:proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:password|secret|api[_-]?key|access[_-]?token)\s*[:=])")
+_SENSITIVE_NAMES = {".env", "id_rsa", "id_ed25519", "credentials.json", "secrets.py"}
+
+def _changed_paths(path: str) -> List[str]:
+    result = subprocess.run(["git", "status", "--porcelain", "-z"], capture_output=True, text=True, cwd=path)
+    paths = []
+    for record in result.stdout.split("\0"):
+        if not record:
+            continue
+        candidate = record[3:]
+        if " -> " in candidate:
+            candidate = candidate.split(" -> ", 1)[1]
+        paths.append(candidate)
+    return paths
+
+def _safe_to_stage(repo: str, paths: List[str]) -> Tuple[bool, str]:
+    for relative in paths:
+        file_path = Path(repo) / relative
+        if file_path.name in _SENSITIVE_NAMES or file_path.suffix in {".key", ".pem", ".token"}:
+            return False, f"Refusing to stage sensitive path: {relative}"
+        if file_path.is_file():
+            try:
+                if _SECRET_RE.search(file_path.read_text(encoding="utf-8", errors="ignore")[:2000000]):
+                    return False, f"Possible credential detected in: {relative}"
+            except OSError:
+                pass
+    return True, ""
+
+
 # ── Basic repo queries ─────────────────────────────────────────────────────────
 
 def is_git_repo(path: str = None) -> bool:
@@ -63,32 +92,27 @@ def git_current_branch(path: str = None) -> str:
 
 # ── Commit ─────────────────────────────────────────────────────────────────────
 
-def git_commit(message: str, path: str = None, add_all: bool = True) -> str:
+def git_commit(message: str, path: str = None, add_all: bool = True, paths: List[str] | None = None) -> str:
     path = path or os.getcwd()
-
     if not is_git_repo(path):
         return "[ERROR] Not a git repository."
-
-    if add_all:
-        result = subprocess.run(
-            ["git", "add", "-A"],
-            capture_output=True, text=True, cwd=path
-        )
+    stage_paths = list(paths or [])
+    if add_all and not stage_paths:
+        stage_paths = _changed_paths(path)
+    if stage_paths:
+        safe, reason = _safe_to_stage(path, stage_paths)
+        if not safe:
+            return f"[ERROR] {reason}"
+        result = subprocess.run(["git", "add", "--", *stage_paths], capture_output=True, text=True, cwd=path)
         if result.returncode != 0:
             return f"[ERROR] git add failed: {result.stderr}"
-
-    status = git_status(path)
-    if status == "Nothing to commit.":
-        return "Nothing to commit — working tree clean."
-
-    result = subprocess.run(
-        ["git", "commit", "-m", message],
-        capture_output=True, text=True, cwd=path
-    )
+    staged = subprocess.run(["git", "diff", "--cached", "--name-only"], capture_output=True, text=True, cwd=path).stdout.strip()
+    if not staged:
+        return "Nothing staged to commit."
+    result = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, cwd=path)
     if result.returncode == 0:
         return result.stdout.strip()
     return f"[ERROR] {result.stderr.strip()}"
-
 
 def git_push(path: str = None) -> str:
     path = path or os.getcwd()
@@ -129,33 +153,24 @@ def git_branches(path: str = None) -> str:
 
 
 def git_branch_create(name: str, path: str = None) -> str:
-    """Create a new branch and switch to it immediately."""
     path = path or os.getcwd()
-    # Validate name (no spaces, no special chars)
-    if re.search(r"[\s~^:?*\[\\\]@{]", name):
+    valid = subprocess.run(["git", "check-ref-format", "--branch", name], capture_output=True, text=True, cwd=path)
+    if valid.returncode != 0:
         return f"[ERROR] Invalid branch name: '{name}'"
-
-    result = subprocess.run(
-        ["git", "checkout", "-b", name],
-        capture_output=True, text=True, cwd=path
-    )
+    result = subprocess.run(["git", "switch", "-c", name], capture_output=True, text=True, cwd=path)
     if result.returncode == 0:
         return f"Created and switched to branch '{name}'."
     return f"[ERROR] {result.stderr.strip()}"
 
-
 def git_checkout(name: str, path: str = None) -> str:
-    """Switch to an existing branch."""
     path = path or os.getcwd()
-    result = subprocess.run(
-        ["git", "checkout", name],
-        capture_output=True, text=True, cwd=path
-    )
+    valid = subprocess.run(["git", "check-ref-format", "--branch", name], capture_output=True, text=True, cwd=path)
+    if valid.returncode != 0:
+        return f"[ERROR] Invalid branch name: '{name}'"
+    result = subprocess.run(["git", "switch", name], capture_output=True, text=True, cwd=path)
     if result.returncode == 0:
-        msg = result.stderr.strip() or result.stdout.strip()
-        return msg or f"Switched to branch '{name}'."
+        return result.stderr.strip() or result.stdout.strip() or f"Switched to branch '{name}'."
     return f"[ERROR] {result.stderr.strip()}"
-
 
 def git_merge(branch: str, path: str = None) -> str:
     """
@@ -168,7 +183,7 @@ def git_merge(branch: str, path: str = None) -> str:
     """
     path = path or os.getcwd()
     result = subprocess.run(
-        ["git", "merge", branch],
+        ["git", "merge", "--", branch],
         capture_output=True, text=True, cwd=path
     )
     combined = (result.stdout + result.stderr).strip()

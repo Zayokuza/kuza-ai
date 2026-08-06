@@ -21,6 +21,7 @@ class JobResult:
     result: Any = None
     error: str | None = None
     elapsed_seconds: float = 0.0
+    completed_at: float = 0.0
 
 
 class SidecarWorker:
@@ -100,6 +101,7 @@ class SidecarWorker:
                 status="completed",
                 result=value,
                 elapsed_seconds=round(elapsed, 3),
+                completed_at=time.time(),
             )
 
             if hasattr(value, "files") and hasattr(value, "symbols"):
@@ -135,6 +137,7 @@ class SidecarWorker:
                 status="failed",
                 error=str(exc),
                 elapsed_seconds=round(elapsed, 3),
+                completed_at=time.time(),
             )
 
             channel.publish(
@@ -163,3 +166,11 @@ class SidecarWorker:
         """Return a completed job result, or None."""
         with self._lock:
             return self.results.get(job_id)
+
+    def prune_results(self, max_age: float = 3600) -> int:
+        cutoff = time.time() - max(0.0, max_age)
+        with self._lock:
+            stale = [job_id for job_id, result in self.results.items() if result.completed_at and result.completed_at < cutoff]
+            for job_id in stale:
+                self.results.pop(job_id, None)
+        return len(stale)

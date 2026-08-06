@@ -10,11 +10,34 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Set
+from urllib.parse import urlparse
 
 from aiohttp import web, WSMsgType
 
 KUZA_DIR = Path(__file__).parent.parent
 GUI_DIR   = Path(__file__).parent
+
+GUI_TOKEN = os.environ.get("KUZA_GUI_TOKEN", "").strip()
+REQUIRE_AUTH = False
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+def _is_loopback_host(host: str) -> bool:
+    return str(host or "").strip().lower() in _LOOPBACK_HOSTS
+
+def _authorized(request: web.Request) -> bool:
+    if not REQUIRE_AUTH:
+        return True
+    supplied = request.query.get("token", "") or request.headers.get("X-Kuza-Token", "")
+    return bool(GUI_TOKEN) and supplied == GUI_TOKEN
+
+def _origin_allowed(request: web.Request) -> bool:
+    origin = request.headers.get("Origin")
+    if not origin:
+        return not REQUIRE_AUTH
+    try:
+        return urlparse(origin).netloc == request.host
+    except Exception:
+        return False
 
 # ─── ANSI / metric parsers ────────────────────────────────────────────────────
 
@@ -188,11 +211,17 @@ async def metrics_loop() -> None:
 # ─── HTTP routes ──────────────────────────────────────────────────────────────
 
 async def handle_index(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        raise web.HTTPUnauthorized(text='Valid KUZA_GUI_TOKEN required')
     html = (GUI_DIR / 'index.html').read_text(encoding='utf-8')
     return web.Response(text=html, content_type='text/html')
 
 
 async def handle_ws(request: web.Request) -> web.WebSocketResponse:
+    if not _authorized(request):
+        raise web.HTTPUnauthorized(text='Valid KUZA_GUI_TOKEN required')
+    if not _origin_allowed(request):
+        raise web.HTTPForbidden(text='WebSocket origin rejected')
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     clients.add(ws)
@@ -239,6 +268,10 @@ def make_app() -> web.Application:
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('KUZA_GUI_PORT', '8888'))
-    host = os.environ.get('KUZA_GUI_HOST', '0.0.0.0')
-    print(f'\n  KUZA-V2 GUI  →  http://localhost:{port}\n')
+    host = os.environ.get('KUZA_GUI_HOST', '127.0.0.1')
+    REQUIRE_AUTH = not _is_loopback_host(host)
+    if REQUIRE_AUTH and not GUI_TOKEN:
+        raise SystemExit('KUZA_GUI_TOKEN is required when KUZA_GUI_HOST is not loopback')
+    token_hint = '?token=<KUZA_GUI_TOKEN>' if REQUIRE_AUTH else ''
+    print(f'\n  KUZA-V2 GUI  →  http://{host}:{port}/{token_hint}\n')
     web.run_app(make_app(), host=host, port=port, print=lambda *_: None)

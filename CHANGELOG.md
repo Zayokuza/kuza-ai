@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-08-06
+
+### Security and reliability hardening
+
+- Locked the GUI to loopback by default and added token/origin protection
+- Made task cancellation terminal
+- Centralized action authorization
+- Routed peer writes through the filesystem safety path
+- Consolidated sidecar workers and unified Nomic embeddings
+- Added atomic writes, broader checkpoints, Git hardening, and the stable `kuza` launcher
+
+---
+
 ## [Unreleased]
 
 ### Goal-Driven Autonomy

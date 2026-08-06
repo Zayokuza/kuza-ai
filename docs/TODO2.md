@@ -1,3 +1,5 @@
+> Status notice: historical TODO content below may be stale. See `docs/HARDENING_STATUS.md`.
+
 # Kuza-v2 — TODO2: Deferred Items & Recommendations
 
 **Created:** 2026-03-29

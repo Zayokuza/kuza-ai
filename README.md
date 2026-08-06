@@ -47,7 +47,7 @@ If you value coding on the go without burning subscriptions or sending code to t
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/Zayokuza/kuza-ai-AI.git && cd Kuza-AI
+git clone https://github.com/Zayokuza/kuza-ai.git && cd Kuza-AI
 
 # 2. Run the installer (downloads models, builds llama.cpp, sets PATH)
 ./install.sh
@@ -70,7 +70,7 @@ See [docs/installation.md](docs/installation.md) for manual setup and model down
 
 ```bash
 # 1. Clone and install Python dependencies
-git clone https://github.com/Zayokuza/kuza-ai-AI.git && cd Kuza-AI
+git clone https://github.com/Zayokuza/kuza-ai.git && cd Kuza-AI
 pip install -r requirements.txt
 
 # 2. Set your API key (get one at https://openrouter.ai/keys)
@@ -221,3 +221,14 @@ MIT License
 ---
 
 *If Kuza helps you code on the go, consider starring ⭐ the repo — it helps other Android developers find this project!*
+
+## Security and privacy modes
+
+Kuza is local by default. Data leaves the device only when you explicitly enable a remote inference backend, use web tools, or approve sharing project content with a peer CLI. The GUI binds to `127.0.0.1` by default; non-loopback binding requires `KUZA_GUI_TOKEN`.
+
+Stable commands:
+
+```bash
+kuzad2 start
+kuza
+```

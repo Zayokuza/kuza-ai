@@ -60,3 +60,11 @@ make -C docs html
 - Ensure all dependencies are installed by running `pip install -r requirements.txt`.
 - The installation script (`install.sh`) automates the setup process.
 ```
+
+# Current Runtime Truth
+
+- Core runtime: Python, llama.cpp server, Rich, Requests, BeautifulSoup, aiohttp
+- Optional pipeline dependencies are isolated in `requirements-pipeline.txt`
+- Default inference is local; remote and peer modes can transmit approved context
+- Stable entrypoints: `kuza` and `kuzad2`
+- Current release line: 2.1.x

@@ -27,6 +27,8 @@ LOG_FILE="$DAEMON_DIR/kuza-v2.log"
 # Planner daemon files
 PLANND_PID_FILE="$DAEMON_DIR/plannd.pid"
 PLANND_LOG_FILE="$DAEMON_DIR/plannd.log"
+PLANND_PORT="${KUZA_PLANND_PORT:-8081}"
+LLAMA_PID_FILE="$DAEMON_DIR/llama-server.pid"
 
 # Ensure daemon directory exists
 mkdir -p "$DAEMON_DIR"
@@ -34,6 +36,27 @@ chmod 700 "$DAEMON_DIR" 2>/dev/null || true
 
 daemon_cli() {
     python3 "$KUZA_V2_DIR/core/daemon_cli.py" "$@"
+}
+
+
+stop_tracked_llama() {
+    [ -f "$LLAMA_PID_FILE" ] || return 0
+    local pid cmdline
+    pid="$(cat "$LLAMA_PID_FILE" 2>/dev/null || true)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+        if [[ "$cmdline" == *llama-server* ]] && [[ "$cmdline" == *"--port 8080"* ]]; then
+            kill -TERM "$pid" 2>/dev/null || true
+            for _ in {1..10}; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.2
+            done
+            kill -9 "$pid" 2>/dev/null || true
+        else
+            echo "Refusing to kill PID $pid: not Kuza's port-8080 llama-server"
+        fi
+    fi
+    rm -f "$LLAMA_PID_FILE"
 }
 
 # ── Status display ─────────────────────────────────────────────────────────────
@@ -84,12 +107,12 @@ start_daemon() {
     fi
 
     echo "Starting Kuza-v2 daemon..."
+    stop_tracked_llama
 
     # Clear stale Python bytecode cache so code changes take effect immediately
     find "$KUZA_V2_DIR" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
     # Kill any orphaned llama-server on port 8080 from a previous session
-    pkill -9 -f "llama-server.*8080" 2>/dev/null || true
     sleep 1
 
     # Start daemon in background, redirect output to log
@@ -131,7 +154,7 @@ stop_daemon() {
         if ! kill -0 "$PID" 2>/dev/null; then
             echo "Main daemon stopped"
             rm -f "$PID_FILE"
-            pkill -9 -f "llama-server.*8080" 2>/dev/null || true
+            stop_tracked_llama
             return 0
         fi
         sleep 0.5
@@ -140,7 +163,7 @@ stop_daemon() {
     echo "Force killing main daemon..."
     kill -9 "$PID" 2>/dev/null || true
     rm -f "$PID_FILE"
-    pkill -9 -f "llama-server.*8080" 2>/dev/null || true
+    stop_tracked_llama
     echo "Main daemon stopped (forced)"
 }
 
@@ -165,10 +188,9 @@ start_plannd() {
         fi
     fi
 
-    echo "Starting 0.5B planner/summarizer on port 8081..."
+    echo "Starting 0.5B planner/summarizer on port $PLANND_PORT..."
 
     # Kill any orphaned llama-server on port 8081 from a previous session
-    pkill -9 -f "llama-server.*8081" 2>/dev/null || true
     sleep 0.5
 
     # Resolve model path and llama-server binary from config
@@ -185,7 +207,7 @@ start_plannd() {
     nohup "$LLAMA_BIN" \
         -m "$MODEL_FILE" \
         --host 127.0.0.1 \
-        --port 8081 \
+        --port "$PLANND_PORT" \
         -c 8192 \
         -t 4 \
         --temp 0.3 \
@@ -232,7 +254,6 @@ stop_plannd() {
         if ! kill -0 "$PID" 2>/dev/null; then
             echo "Planner daemon stopped"
             rm -f "$PLANND_PID_FILE"
-            pkill -9 -f "llama-server.*8081" 2>/dev/null || true
             return 0
         fi
         sleep 0.5
@@ -240,7 +261,6 @@ stop_plannd() {
 
     kill -9 "$PID" 2>/dev/null || true
     rm -f "$PLANND_PID_FILE"
-    pkill -9 -f "llama-server.*8081" 2>/dev/null || true
     echo "Planner daemon stopped (forced)"
     return 0
 }
@@ -284,8 +304,8 @@ case "${1:-status}" in
         show_status || true
         ;;
     stop)
-        stop_daemon || true
         stop_plannd || true
+        stop_daemon || true
         ;;
     status)
         show_status

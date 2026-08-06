@@ -259,6 +259,7 @@ download_models() {
 # ── 6. Executables & PATH ─────────────────────────────────────────────────────
 make_executable() {
     print_step "Permissions"
+    chmod +x "$KUZA_V2_DIR/kuza"
     chmod +x "$KUZA_V2_DIR/kuza2"
     chmod +x "$KUZA_V2_DIR/kuzad2"
     chmod +x "$KUZA_V2_DIR/install.sh"
@@ -322,6 +323,7 @@ verify_installation() {
         && print_success "Embedding model: ready" \
         || print_warning "Embedding model: missing"
 
+    command -v kuza   &>/dev/null && print_success "kuza:   in PATH"  || print_warning "kuza:   not in PATH yet (restart terminal)"
     command -v kuza2  &>/dev/null && print_success "kuza2:  in PATH"  || print_warning "kuza2:  not in PATH yet (restart terminal)"
     command -v kuzad2 &>/dev/null && print_success "kuzad2: in PATH"  || print_warning "kuzad2: not in PATH yet (restart terminal)"
 }
@@ -339,8 +341,8 @@ print_completion() {
     echo
     echo -e "  Reload shell:   ${BLUE}source $SHELL_CONFIG${NC}"
     echo -e "  Start daemon:   ${BLUE}kuzad2 start${NC}"
-    echo -e "  Run Kuza:      ${BLUE}kuza2${NC}"
-    echo -e "    → opens the interactive TUI ${BOLD}and${NC} the browser GUI automatically"
+    echo -e "  Run Kuza:      ${BLUE}kuza${NC}"
+    echo -e "    → opens the interactive TUI; set KUZA_AUTO_GUI=1 to also start the browser GUI"
     echo -e "    → browser:    ${BLUE}http://localhost:8888${NC}"
     echo
     echo -e "  Stop daemon:    ${BLUE}kuzad2 stop${NC}"

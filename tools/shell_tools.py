@@ -113,17 +113,19 @@ def shell(command: str, yolo: bool = False, timeout: int = 1800) -> str:
         return f"[ERROR] {validation_error}"
 
     shell_token = _matched_metacharacter(command)
-    should_confirm = bool(shell_token)
-
-    if is_dangerous(command):
-        warning(f"Potentially dangerous command: `{command}`")
-        should_confirm = True
-    elif AGENT_CONFIG["confirm_shell"] and not yolo:
-        should_confirm = True
-
-    if should_confirm and not yolo:
-        if not ask_confirm(f"Run shell command: `{command}`?"):
-            return "[CANCELLED] User declined to run command."
+    from core.action_policy import ActionRequest, authorize
+    allowed, reason = authorize(
+        ActionRequest(
+            kind="shell",
+            description=command,
+            dangerous=is_dangerous(command) or bool(shell_token),
+        ),
+        yolo=yolo,
+        confirm_fn=ask_confirm,
+    )
+    if not allowed:
+        prefix = "[CANCELLED]" if "declined" in reason.lower() else "[BLOCKED]"
+        return f"{prefix} {reason}"
 
     try:
         if shell_token:

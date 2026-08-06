@@ -28,6 +28,7 @@ class SidecarManager:
         context=None,
         **kwargs,
     ):
+        self.worker.prune_results(max_age=3600)
         return self.queue.submit(
             name,
             function,
@@ -52,6 +53,12 @@ class SidecarManager:
 
     def pending(self):
         return self.queue.pending()
+
+    def stop(self):
+        self.worker.stop()
+
+    def prune_results(self, max_age=3600):
+        return self.worker.prune_results(max_age=max_age)
 
     def publish_main(self, kind, summary, *, task_id=None, details=None):
         return self.evidence.publish(

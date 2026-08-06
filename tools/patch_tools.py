@@ -3,7 +3,7 @@ patch_file — surgical find/replace in files.
 Much more efficient than write_file for small edits.
 """
 from pathlib import Path
-from utils.logger import confirm as ask_confirm, warning, success
+from utils.logger import success
 from utils.config import AGENT_CONFIG
 
 def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
@@ -50,16 +50,6 @@ def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
     # Show diff preview
     new_content = content.replace(old_str, new_str, 1)
 
-    if AGENT_CONFIG.get("confirm_write"):
-        warning(f"About to patch: {path}")
-        # Show context around the change
-        old_lines = old_str.splitlines()
-        new_lines = new_str.splitlines()
-        print(f"  Removing: {repr(old_str[:80])}")
-        print(f"  Adding:   {repr(new_str[:80])}")
-        if not ask_confirm("Apply patch?"):
-            return "[CANCELLED] Patch cancelled."
-
     # Pre-patch syntax check for Python files: reject patches that break syntax
     if p.suffix == '.py':
         try:
@@ -77,7 +67,7 @@ def tool_patch_file(path: str, old_str: str, new_str: str) -> str:
     try:
         # Route through the same validated Filesystem instance so self-mod
         # configuration and checkpoint behavior cannot depend on import order.
-        fs.write(str(p), new_content)
+        fs.write(str(p), new_content, action_kind="patch")
         return f"Patched {path} ({len(old_str)} chars → {len(new_str)} chars)"
     except FilesystemAccessError as e:
         return f"[ERROR] {e}"

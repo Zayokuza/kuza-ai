@@ -25,6 +25,7 @@ from utils.config import MODEL_PATH, MODEL_CONFIG, LLAMA_SERVER_BIN, KUZA_STATE_
 # llama-server configuration
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8080  # Default llama-server port
+LLAMA_PID_FILE = KUZA_STATE_DIR / "llama-server.pid"
 
 
 class LlamaServer:
@@ -115,6 +116,12 @@ class LlamaServer:
                 stderr=subprocess.STDOUT,
                 preexec_fn=os.setsid if os.name != 'nt' else None,
             )
+            log_fd.close()
+            LLAMA_PID_FILE.write_text(str(self.process.pid), encoding='utf-8')
+            try:
+                LLAMA_PID_FILE.chmod(0o600)
+            except OSError:
+                pass
 
             info(f"llama-server PID: {self.process.pid}, logging to {log_file}")
 
@@ -178,6 +185,7 @@ class LlamaServer:
                 except Exception:
                     pass
             finally:
+                LLAMA_PID_FILE.unlink(missing_ok=True)
                 self.process = None
                 self._started = False
 
