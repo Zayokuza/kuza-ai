@@ -354,7 +354,7 @@ def extract_json(raw):
 
     return None
 
-def parse_tool_call(text):
+def _parse_tool_call_original_v5(text):
     # ── Primary: JSON format in <tool> tags ──────────────────────────
     match = re.search(r"<tool>\s*(\{.*)", text, re.DOTALL)
     if match:
@@ -392,6 +392,40 @@ def parse_tool_call(text):
         return {"name": "write_file", "args": {"path": m.group(1), "content": m.group(2).strip()}}
 
     return None
+
+
+
+# KUZA_NETWORK_TOOL_EXECUTION_V5
+def _parse_fenced_tool_call_v5(text):
+    """Parse strict JSON tool objects emitted inside Markdown fences."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    import json as _json
+    import re as _re
+    blocks = _re.findall(
+        r"```(?:json|bash|shell|tool|text)?\s*(.*?)```",
+        text,
+        flags=_re.IGNORECASE | _re.DOTALL,
+    )
+    decoder = _json.JSONDecoder()
+    for block in blocks:
+        for match in _re.finditer(r"\{", block):
+            try:
+                payload, _ = decoder.raw_decode(block[match.start():])
+            except (TypeError, ValueError, _json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            name = payload.get("name")
+            args = payload.get("args")
+            if isinstance(name, str) and name in TOOLS and isinstance(args, dict):
+                return {"name": name, "args": args}
+    return None
+
+
+def parse_tool_call(text):
+    parsed = _parse_tool_call_original_v5(text)
+    return parsed or _parse_fenced_tool_call_v5(text)
 
 def _format_tool_for_history(tool_dict):
     """Format a tool call for conversation history."""
@@ -1247,6 +1281,96 @@ def _ground_successful_search_results(results) -> str:
     )
 
 
+_AUTHORIZED_NETWORK_DIAGNOSTIC_RE_V5 = re.compile(
+    r"\b(?:diagnos(?:e|is|tic)|troubleshoot|inspect|check|analy[sz]e)\b"
+    r"(?s:.*?)"
+    r"\b(?:dns|resolver|resolution|nameserver|ip|routing|route|proxy|"
+    r"endpoint|connectivity|network|captcha)\b",
+    re.IGNORECASE,
+)
+_AUTHORIZED_SCOPE_RE_V5 = re.compile(
+    r"\b(?:authorized|authorised|my\s+(?:system|device|network|server|phone)|"
+    r"own\s+(?:system|device|network|server|phone)|local\s+(?:system|device)|"
+    r"do\s+not\s+bypass|don't\s+bypass|manual\s+completion|require\s+manual)\b",
+    re.IGNORECASE,
+)
+_UNSAFE_BYPASS_RE_V5 = re.compile(r"\b(?:bypass|evade|defeat|circumvent)\b", re.IGNORECASE)
+_SAFE_BYPASS_NEGATION_RE_V5 = re.compile(
+    r"\b(?:do\s+not|don't|never|without)\s+(?:attempting\s+to\s+)?"
+    r"(?:bypass|evade|defeat|circumvent)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_authorized_network_diagnostic_v5(message: str) -> bool:
+    text = str(message or "")
+    if not _AUTHORIZED_NETWORK_DIAGNOSTIC_RE_V5.search(text):
+        return False
+    if not _AUTHORIZED_SCOPE_RE_V5.search(text):
+        return False
+    return not (
+        _UNSAFE_BYPASS_RE_V5.search(text)
+        and not _SAFE_BYPASS_NEGATION_RE_V5.search(text)
+    )
+
+
+def _filter_network_output_v5(label: str, output: str) -> str:
+    text = str(output or "").strip() or "[no output]"
+    if label == "Android resolver/network properties":
+        lines = [
+            line for line in text.splitlines()
+            if any(term in line.lower() for term in (
+                "dns", "net.", "proxy", "wifi", "wlan", "mobile", "rmnet"
+            ))
+        ]
+        text = "\n".join(lines) or "[no DNS/network properties found]"
+    elif label == "Proxy environment":
+        lines = [line for line in text.splitlines() if "proxy" in line.lower()]
+        text = "\n".join(lines) or "[no proxy environment variables set]"
+    return text[:3500] + ("\n...[truncated]" if len(text) > 3500 else "")
+
+
+def _run_authorized_network_diagnostics_v5(user_message: str, executor=None) -> str:
+    """Run safe read-only local diagnostics and return grounded evidence."""
+    runner = executor or execute_tool
+    checks = [
+        ("Termux resolver file", "cat ${PREFIX:-/data/data/com.termux/files/usr}/etc/resolv.conf"),
+        ("Android resolver/network properties", "getprop"),
+        ("Network interfaces", "ip addr"),
+        ("Routing table", "ip route"),
+        ("Proxy environment", "printenv"),
+    ]
+    evidence = []
+    passed = 0
+    for label, command in checks:
+        try:
+            result = runner({"name": "shell", "args": {"command": command}})
+        except Exception as exc:
+            result = "[ERROR] " + str(exc)
+        failed = is_error(result, "shell")
+        if not failed:
+            passed += 1
+        evidence.append(
+            f"[{'FAIL' if failed else 'OK'}] {label}\n"
+            + _filter_network_output_v5(label, result)
+        )
+    prefix = (
+        "Authorized DNS/IP diagnostic completed with real local command evidence."
+        if passed else
+        "[INCOMPLETE] Authorized network diagnostics could not execute any local check."
+    )
+    return "\n\n".join([
+        prefix,
+        f"Successful checks: {passed}/{len(checks)}.",
+        *evidence,
+        "No endpoint hostname or URL was supplied, so Kuza did not run an "
+        "endpoint-specific DNS lookup, TCP/TLS/HTTP request, proxy test, or "
+        "CAPTCHA detection. Supply an endpoint you own or are authorized to test. "
+        "CAPTCHA handling remains detect, stop, preserve the session, and require "
+        "manual completion—never bypass.",
+    ])
+
+
 def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, _in_subtask=False, _plan_rag_block=""):
     # Reset streaming flag at start of each agent turn
     import core.inference_v2 as _inf_mod
@@ -1254,6 +1378,24 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
 
     # Learn preferences from natural language in the user's message
     _get_learning().learn_from_message(user_message)
+
+    # KUZA_DIRECT_NETWORK_DIAGNOSTIC_V5
+    if _is_authorized_network_diagnostic_v5(user_message) and not _in_subtask:
+        _summary = _run_authorized_network_diagnostics_v5(user_message)
+        _success = not _summary.lstrip().startswith("[INCOMPLETE]")
+        try:
+            _get_learning().record_task_outcome(
+                user_message,
+                ["shell:resolver", "shell:getprop", "shell:ip_addr",
+                 "shell:ip_route", "shell:printenv"],
+                success=_success,
+                validation=[],
+            )
+        except Exception:
+            pass
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": _summary})
+        return _summary, history
 
     # KUZA_DIRECT_LOCAL_CODE_SEARCH_V3
     if _explicit_local_code_search(user_message) and not _in_subtask:
