@@ -1038,6 +1038,96 @@ def _auto_apply_peer_code(peer_output, context_message=""):
     return files_written
 
 
+# KUZA_SAFE_INTENT_RECOVERY_V2
+_KUZA_DEAD_END_REFUSAL_MARKERS = (
+    "not within my programming guidelines",
+    "i must clarify that assisting with",
+    "i cannot assist with",
+    "i can't assist with",
+    "i am unable to assist with",
+    "i'm unable to assist with",
+    "i cannot help with",
+    "i can't help with",
+    "i'm sorry, but i can't",
+)
+
+_KUZA_CONCRETE_SAFE_HELP_MARKERS = (
+    "dns failover",
+    "proxy pool",
+    "rotating proxies",
+    "ip rotation",
+    "rate limit",
+    "exponential backoff",
+    "health check",
+    "authorized lab",
+    "defensive testing",
+    "robots.txt",
+    "site terms",
+)
+
+
+def _kuza_looks_like_dead_end_refusal(text: str) -> bool:
+    """Detect generic refusal boilerplate that provides no concrete safe help."""
+    if not isinstance(text, str):
+        return False
+
+    lowered = " ".join(text.lower().split())
+    if not any(
+        marker in lowered for marker in _KUZA_DEAD_END_REFUSAL_MARKERS
+    ):
+        return False
+
+    return not any(
+        marker in lowered for marker in _KUZA_CONCRETE_SAFE_HELP_MARKERS
+    )
+
+
+def _kuza_safe_intent_retry_prompt(user_message: str) -> str:
+    """Request the safest legitimate interpretation instead of another refusal."""
+    original = (user_message or "").strip()[:2000]
+    return (
+        "Your previous response was a generic refusal and failed to address the "
+        "legitimate part of the request. Answer the safest legitimate "
+        "interpretation directly. Do not provide unauthorized access, "
+        "persistence, credential theft, stealth, or evasion. Exclude only that "
+        "specific harmful portion and continue with concrete allowed help. "
+        "For ambiguous DNS, IP, proxy, backdoor, crawling, or web-scraping "
+        "wording, focus on DNS failover, approved proxy pools, IP rotation, "
+        "endpoint health checks, retries with exponential backoff, per-domain "
+        "rate limits, caching, robots.txt, site terms, and authorized defensive "
+        "testing. Do not mention policies or programming guidelines, and do not "
+        "tell the user to choose another topic.\n\n"
+        f"ORIGINAL REQUEST:\n{original}"
+    )
+
+
+def _kuza_safe_intent_fallback(user_message: str) -> str:
+    """Provide useful allowed guidance if the model emits two dead-end refusals."""
+    lowered = (user_message or "").lower()
+    networking_terms = (
+        "scrap", "dns", "proxy", "ip ", "backdoor", "route", "crawl"
+    )
+
+    if any(term in lowered for term in networking_terms):
+        return (
+            "I can help with the legitimate scraping and networking side: DNS "
+            "failover, approved proxy pools, IP rotation, endpoint health "
+            "checks, retries with exponential backoff, per-domain rate limits, "
+            "caching, and IP reputation monitoring. I can't help create "
+            "unauthorized backdoors or persistence. A sound setup health-checks "
+            "each approved egress endpoint, rotates after failures or 429 "
+            "responses, quarantines unhealthy IPs, honors robots.txt and site "
+            "terms, and logs every route change."
+        )
+
+    return (
+        "I can't help with unauthorized access, persistence, credential theft, "
+        "stealth, or evasion. I can still help with the legitimate portion using "
+        "authorized testing, defensive analysis, normal automation, or system "
+        "reliability, with concrete implementation steps."
+    )
+
+
 def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, _in_subtask=False, _plan_rag_block=""):
     # Reset streaming flag at start of each agent turn
     import core.inference_v2 as _inf_mod
@@ -1596,6 +1686,7 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         if any(s in user_message.lower() for s in _complex_signals):
             max_steps = max(max_steps, 10)
 
+    _kuza_refusal_retries = 0
     while step < max_steps:
         step += 1
         used, total = get_context_usage(messages)
@@ -1658,6 +1749,24 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             response = infer(messages, stream=True, extra_stop=_stop,
                              show_thinking=True, max_tokens=_qa_max_tokens)
         response = clean_response(response)
+        # KUZA_SAFE_INTENT_HOOK_V2
+        # Intercept generic boilerplate before older refusal handlers can retry it.
+        if _kuza_looks_like_dead_end_refusal(response):
+            if _kuza_refusal_retries == 0:
+                _kuza_refusal_retries += 1
+                warning(
+                    "Dead-end refusal detected — retrying with a safe-intent "
+                    "interpretation"
+                )
+                messages.append({"role": "assistant", "content": response})
+                messages.append({
+                    "role": "user",
+                    "content": _kuza_safe_intent_retry_prompt(user_message),
+                })
+                continue
+
+            # Never spend a third expensive generation on the same refusal.
+            response = _kuza_safe_intent_fallback(user_message)
         tool_dict = parse_tool_call(response)
 
         # Small local models sometimes return a fenced shell command instead
