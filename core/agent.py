@@ -1128,6 +1128,125 @@ def _kuza_safe_intent_fallback(user_message: str) -> str:
     )
 
 
+# KUZA_RESOLUTION_LOOP_FIX_V3
+_LOCAL_CODE_SEARCH_RE = re.compile(
+    r"\b(?:find|locate|search|look\s+for|inspect|audit)\b"
+    r"(?s:.*?)"
+    r"\b(?:code|function|class|module|implementation|reference|handler|logic)\b",
+    re.IGNORECASE,
+)
+_WEB_SEARCH_HINT_RE = re.compile(
+    r"\b(?:web|online|internet|website|public source|latest|current docs?)\b",
+    re.IGNORECASE,
+)
+_MEMORY_REQUEST_RE = re.compile(
+    r"\b(?:remember|save (?:this|that) (?:as|for)|make a note|note this|"
+    r"store this|don't forget|do not forget)\b",
+    re.IGNORECASE,
+)
+_SEARCH_STOPWORDS = {
+    "about", "after", "again", "also", "and", "any", "are", "code",
+    "could", "find", "for", "from", "function", "help", "implementation",
+    "inspect", "into", "kuza", "locate", "logic", "look", "module", "now",
+    "of", "on", "or", "reference", "search", "that", "the", "this", "to",
+    "use", "what", "will", "with", "you", "your",
+}
+_SEARCH_EXPANSIONS = {
+    "dns": ("dns", "resolver", "getaddrinfo", "nameserver"),
+    "ip": ("ip", "socket", "connect", "endpoint", "address"),
+    "backdoor": (
+        "backdoor", "callback", "webhook", "persistence", "reverse",
+        "subprocess", "os.system",
+    ),
+    "scrape": ("scrap", "crawl", "requests", "urllib", "proxy"),
+    "scraping": ("scrap", "crawl", "requests", "urllib", "proxy"),
+}
+
+def _explicit_local_code_search(message: str) -> bool:
+    text = str(message or "")
+    return bool(
+        _LOCAL_CODE_SEARCH_RE.search(text)
+        and not _WEB_SEARCH_HINT_RE.search(text)
+    )
+
+def _explicit_memory_request(message: str) -> bool:
+    return bool(_MEMORY_REQUEST_RE.search(str(message or "")))
+
+def _local_search_pattern(message: str) -> str:
+    lowered = str(message or "").lower()
+    terms = []
+    for token in re.findall(r"[a-zA-Z0-9_.-]{2,}", lowered):
+        token = token.strip("._-")
+        if not token or token in _SEARCH_STOPWORDS or token in terms:
+            continue
+        terms.append(token)
+    for trigger, expansions in _SEARCH_EXPANSIONS.items():
+        if trigger in lowered:
+            for term in expansions:
+                if term not in terms:
+                    terms.append(term)
+    terms = terms[:28] or ["retry", "fallback", "resolve", "error", "handler"]
+    return "|".join(re.escape(term) for term in terms)
+
+def _normalize_workspace_search_path(path, workspace=None) -> str:
+    from pathlib import Path as _KuzaPath
+    root = _KuzaPath(workspace or _KuzaPath.cwd()).expanduser().resolve()
+    raw = str(path or ".").strip()
+    if raw in {"", ".", "./", "/"}:
+        return "."
+    candidate = _KuzaPath(raw).expanduser()
+    if candidate.is_absolute():
+        resolved = candidate.resolve(strict=False)
+        try:
+            relative = resolved.relative_to(root)
+            return str(relative) if str(relative) else "."
+        except ValueError:
+            stripped = raw.lstrip("/")
+            local_candidate = (root / stripped).resolve(strict=False)
+            try:
+                local_candidate.relative_to(root)
+            except ValueError:
+                return "."
+            if local_candidate.is_dir():
+                return str(local_candidate.relative_to(root)) or "."
+            return "."
+    resolved = (root / candidate).resolve(strict=False)
+    try:
+        relative = resolved.relative_to(root)
+    except ValueError:
+        return "."
+    if resolved.exists() and not resolved.is_dir():
+        return "."
+    return str(relative) if str(relative) else "."
+
+def _normalize_tool_args(name: str, args) -> dict:
+    normalized = dict(args or {})
+    if name == "search_files":
+        normalized["path"] = _normalize_workspace_search_path(
+            normalized.get("path", ".")
+        )
+    return normalized
+
+def _ground_successful_search_results(results) -> str:
+    rows = []
+    for name, result in results[-3:]:
+        text = str(result or "").strip()
+        if not text:
+            continue
+        if len(text) > 2400:
+            text = text[:2400] + "\n...[truncated]"
+        rows.append(f"{name} evidence:\n{text}")
+    if not rows:
+        return (
+            "[INCOMPLETE] No successful local or web search evidence was "
+            "collected. No files were changed."
+        )
+    return (
+        "Search completed with real tool evidence. No files were changed.\n\n"
+        + "\n\n".join(rows)
+    )
+
+
 def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, _in_subtask=False, _plan_rag_block=""):
     # Reset streaming flag at start of each agent turn
     import core.inference_v2 as _inf_mod
@@ -1135,6 +1254,35 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
 
     # Learn preferences from natural language in the user's message
     _get_learning().learn_from_message(user_message)
+
+    # KUZA_DIRECT_LOCAL_CODE_SEARCH_V3
+    if _explicit_local_code_search(user_message) and not _in_subtask:
+        _pattern = _local_search_pattern(user_message)
+        _tool = {
+            "name": "search_files",
+            "args": {"pattern": _pattern, "path": "."},
+        }
+        _result = execute_tool(_tool)
+        _failed = is_error(_result, "search_files")
+        _summary = (
+            "[INCOMPLETE] Local code search failed:\n" + str(_result)
+            if _failed
+            else _ground_successful_search_results([
+                ("search_files", _result)
+            ])
+        )
+        try:
+            _get_learning().record_task_outcome(
+                user_message,
+                [] if _failed else ["search_files"],
+                success=not _failed,
+                validation=[],
+            )
+        except Exception:
+            pass
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": _summary})
+        return _summary, history
 
     # Main/sidecar shared evidence. Static repository analysis starts early so
     # Python can map reusable code while the main model handles the goal.
@@ -1657,6 +1805,8 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
     step = 0
     max_steps = AGENT_CONFIG["max_steps"]
     tools_used = []
+    successful_tools = []
+    successful_search_results = []
     last_tool_result = ""
     last_failed_attempt = None
     duplicate_count = 0
@@ -1686,7 +1836,6 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         if any(s in user_message.lower() for s in _complex_signals):
             max_steps = max(max_steps, 10)
 
-    _kuza_refusal_retries = 0
     while step < max_steps:
         step += 1
         used, total = get_context_usage(messages)
@@ -1749,24 +1898,6 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             response = infer(messages, stream=True, extra_stop=_stop,
                              show_thinking=True, max_tokens=_qa_max_tokens)
         response = clean_response(response)
-        # KUZA_SAFE_INTENT_HOOK_V2
-        # Intercept generic boilerplate before older refusal handlers can retry it.
-        if _kuza_looks_like_dead_end_refusal(response):
-            if _kuza_refusal_retries == 0:
-                _kuza_refusal_retries += 1
-                warning(
-                    "Dead-end refusal detected — retrying with a safe-intent "
-                    "interpretation"
-                )
-                messages.append({"role": "assistant", "content": response})
-                messages.append({
-                    "role": "user",
-                    "content": _kuza_safe_intent_retry_prompt(user_message),
-                })
-                continue
-
-            # Never spend a third expensive generation on the same refusal.
-            response = _kuza_safe_intent_fallback(user_message)
         tool_dict = parse_tool_call(response)
 
         # Small local models sometimes return a fenced shell command instead
@@ -1831,6 +1962,28 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         if tool_dict:
             name = tool_dict.get("name", "")
             args = tool_dict.get("args", {})
+            # KUZA_NORMALIZE_TOOL_ARGS_V3
+            args = _normalize_tool_args(name, args)
+            tool_dict = {"name": name, "args": args}
+            # KUZA_BLOCK_UNSOLICITED_NOTES_V3
+            if name == "note_save" and not _explicit_memory_request(user_message):
+                warning(
+                    "Blocked unsolicited note_save; the user requested evidence, "
+                    "not persistent memory."
+                )
+                messages.append({
+                    "role": "assistant",
+                    "content": _format_tool_for_history(tool_dict),
+                })
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Do not save a note unless the user explicitly asked you "
+                        "to remember something. Continue the original task using "
+                        "real search/read evidence."
+                    ),
+                })
+                continue
 
             if (
                 require_inspection
@@ -1945,10 +2098,17 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
             tools_used.append(sig)
             last_tool_result = execute_tool(tool_dict)
 
-            if name in _INSPECTION_TOOLS:
+            _tool_failed = is_error(last_tool_result, name)
+            if not _tool_failed:
+                successful_tools.append(sig)
+            if name in _INSPECTION_TOOLS and not _tool_failed:
                 inspection_done = True
             if name in _SEARCH_TOOLS:
                 search_attempts += 1
+                if not _tool_failed:
+                    successful_search_results.append(
+                        (name, last_tool_result)
+                    )
             if name == "shell":
                 command_text = str(args.get("command", "")).lower()
                 if any(marker in command_text for marker in (
@@ -2038,7 +2198,12 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                     "args": dict(args),
                 }
             fpath_touched = args.get("path", "")
-            if fpath_touched and fpath_touched not in files_touched:
+            if (
+                name in {"write_file", "patch_file", "append_file"}
+                and not is_error(last_tool_result, name)
+                and fpath_touched
+                and fpath_touched not in files_touched
+            ):
                 files_touched.append(fpath_touched)
 
             if is_error(last_tool_result, name) and auto_retries < max_retries:
@@ -2199,16 +2364,26 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
                 response, last_tool_result
             )
 
+        if search_goal:
+            response = _ground_successful_search_results(
+                successful_search_results
+            )
+
         if validation_evidence and "validation" not in response.lower():
             response += (
                 "\n\nValidation evidence:\n"
                 + "\n".join(validation_evidence[-2:])
             )
+
+        _outcome_success = (
+            not response.lstrip().startswith("[INCOMPLETE]")
+            and (not search_goal or bool(successful_search_results))
+        )
         try:
             _get_learning().record_task_outcome(
                 user_message,
-                tools_used,
-                success=not response.lstrip().startswith("[INCOMPLETE]"),
+                successful_tools,
+                success=_outcome_success,
                 validation=validation_evidence,
             )
         except Exception:

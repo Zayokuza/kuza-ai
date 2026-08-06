@@ -127,7 +127,7 @@ def _recover_dead_end_refusal(
         return result
 
     warning(
-        "Dead-end refusal detected — retrying with an action-first interpretation"
+        "Dead-end response detected — running one authorized resolution retry"
     )
     retry_messages = list(messages)
     retry_messages.append({"role": "assistant", "content": result})
@@ -145,7 +145,7 @@ def _recover_dead_end_refusal(
     if retry_result and not is_dead_end_refusal(retry_result):
         return retry_result
 
-    warning("Model repeated a dead-end refusal — using deterministic fallback")
+    warning("Model repeated a dead-end response — using deterministic resolution")
     return _fallback_after_refusal(messages)
 
 
