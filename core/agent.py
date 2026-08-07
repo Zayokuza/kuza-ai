@@ -1453,22 +1453,79 @@ def run_agent(user_message, history, yolo=False, use_plan=False, no_plan=False, 
         except Exception:
             _sidecar = None
 
-    # Email-registration lookups already have a purpose-built local tool. Route
-    # them deterministically so a coding-focused model cannot invent search.py
-    # or claim that comparing a hardcoded string searched online accounts.
+    # Start email-registration checks with Holehe. An empty result is
+    # inconclusive rather than proof that no accounts exist.
+    # AUTHORIZED_DEEP_EMAIL_LOOKUP_V1
     _lookup_email = detect_email_account_lookup(user_message)
     if _lookup_email and not _in_subtask:
         info(f"Checking account registrations for {_lookup_email} with Holehe...")
+
         _result = execute_tool({
             "name": "holehe",
             "args": {"email": _lookup_email, "only_used": True},
         })
-        _summary = _result.strip()
-        if _summary.lower().startswith("holehe error:"):
+
+        _summary = str(_result or "").strip()
+        if not _summary:
+            _summary = "[INCOMPLETE] Holehe returned no output."
+        elif _summary.lower().startswith("holehe error:"):
             _summary = "[INCOMPLETE] " + _summary
-        history.append({"role": "user", "content": user_message})
-        history.append({"role": "assistant", "content": _summary})
-        return _summary, history
+
+        _message_low = user_message.lower()
+
+        _deep_requested = bool(re.search(
+            r"\b(?:deep|deeper|cross[- ]?check|comprehensive|exhaustive|"
+            r"keep\s+going|do\s+not\s+give\s+up|don't\s+give\s+up|"
+            r"look\s+(?:further|deeper)|additional\s+methods)\b",
+            _message_low,
+        ))
+
+        _inconclusive = (
+            _summary.startswith("[INCOMPLETE]")
+            or "no supported websites confirmed" in _summary.lower()
+            or "no accounts confirmed" in _summary.lower()
+        )
+
+        if not _deep_requested and not _inconclusive:
+            history.append({"role": "user", "content": user_message})
+            history.append({"role": "assistant", "content": _summary})
+            return _summary, history
+
+        _authorized = bool(re.search(
+            r"\b(?:i own|my email|my account|authorized|authorised|"
+            r"have permission|has permission|with permission|"
+            r"explicit permission|consent|approved to audit)\b",
+            _message_low,
+        ))
+
+        if not _authorized:
+            _question = (
+                f"Confirm that you own {_lookup_email} or have explicit "
+                "permission to audit it before I continue beyond Holehe."
+            )
+            history.append({"role": "user", "content": user_message})
+            history.append({"role": "assistant", "content": _question})
+            return _question, history
+
+        user_message = (
+            f"{user_message}\n\n"
+            "REAL HOLEHE PRECHECK EVIDENCE:\n"
+            f"{_summary}\n\n"
+            "Continue this authorized, read-only investigation under these rules:\n"
+            "- An empty result from one source is inconclusive.\n"
+            "- Try up to three materially different methods while each produces "
+            "new evidence.\n"
+            "- Verify installed commands and their syntax before using them.\n"
+            "- Change strategy after an error; do not repeat the same failed call.\n"
+            "- Ask one exact question if another identifier, API key, login, "
+            "CAPTCHA, permission, manual action, or user decision is required.\n"
+            "- Never bypass authentication, CAPTCHAs, privacy controls, rate "
+            "limits, access controls, or platform protections.\n"
+            "- Do not send password resets, verification messages, or contact "
+            "the account owner.\n"
+            "- Report confirmed evidence, possible indicators, errors, and "
+            "remaining unknowns separately."
+        )
 
     # Fast path for literal safe inspection commands entered directly at the
     # prompt. Execute them deterministically instead of asking the model to
