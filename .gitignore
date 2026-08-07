@@ -80,3 +80,5 @@ config.local.*
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+holehe_*_results.csv
+audit_report_*.txt
