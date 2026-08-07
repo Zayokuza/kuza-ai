@@ -20,7 +20,7 @@ Both models are trained with QLoRA (4-bit quantized base + LoRA adapters) so the
 Run the pipeline in Termux from the kuza-v2 directory:
 
 ```bash
-cd ~/kuza-v2
+cd ~/kuza-ai
 
 # Quick option — no internet needed, ~5,800 synthetic records:
 python pipeline/run.py --synthetic-only
@@ -32,7 +32,7 @@ python pipeline/run.py --datasets phase1 --max-records 3000
 python pipeline/run.py --datasets phase1
 ```
 
-Output file: `~/kuza-v2/pipeline_output/training_data.jsonl`
+Output file: `~/kuza-ai/pipeline_output/training_data.jsonl`
 
 See `docs/pipeline.md` for full pipeline documentation.
 
@@ -52,10 +52,10 @@ Then copy both files:
 
 ```bash
 # The Kaggle notebook
-cp ~/kuza-v2/notebooks/kuza_finetune_kaggle.ipynb ~/storage/downloads/
+cp ~/kuza-ai/notebooks/kuza_finetune_kaggle.ipynb ~/storage/downloads/
 
 # The training data
-cp ~/kuza-v2/pipeline_output/training_data.jsonl ~/storage/downloads/
+cp ~/kuza-ai/pipeline_output/training_data.jsonl ~/storage/downloads/
 ```
 
 Both files will now appear in your phone's Downloads folder and can be uploaded from there.

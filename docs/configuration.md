@@ -120,7 +120,7 @@ RECURSIVE_CONFIG = {
 ```python
 RETRIEVAL_CONFIG = {
     "enabled":            True,
-    "kb_path":            "~/kuza-v2/knowledge",
+    "kb_path":            "~/kuza-ai/knowledge",
     "semantic_search":    True,
     "max_chunks":         4,
     "budget_chars":       2400,    # ~600 tokens of retrieved content per call

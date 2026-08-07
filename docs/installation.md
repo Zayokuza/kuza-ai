@@ -71,24 +71,24 @@ wget https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nom
 ### Step 4 — Clone Kuza-v2
 
 ```bash
-git clone https://github.com/Ishabdullah/Kuza.git ~/kuza-v2
-cd ~/kuza-v2
-chmod +x kuza2 kuzad2
+git clone https://github.com/Zayokuza/kuza-ai.git ~/kuza-ai
+cd ~/kuza-ai
+chmod +x kuza kuza2 kuzad2
 ```
 
 ### Step 5 — Add to PATH
 
 ```bash
-echo 'export PATH="$HOME/kuza-v2:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/kuza-ai:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-> **Other shells:** For `zsh`, replace `~/.bashrc` with `~/.zshrc`. For fish, add `set -x PATH $HOME/kuza-v2 $PATH` to `~/.config/fish/config.fish`. For a universal fallback, add the export to `~/.profile`.
+> **Other shells:** For `zsh`, replace `~/.bashrc` with `~/.zshrc`. For fish, add `set -x PATH $HOME/kuza-ai $PATH` to `~/.config/fish/config.fish`. For a universal fallback, add the export to `~/.profile`.
 
 ### Step 6 — Verify
 
 ```bash
-kuza2 --version
+kuza --version
 kuzad2 status
 ```
 

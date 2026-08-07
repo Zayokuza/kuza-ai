@@ -130,7 +130,7 @@ This table covers exactly what Kuza saves, where it lives, and how long it lasts
 ## Project Structure
 
 ```
-~/kuza-v2/
+~/kuza-ai/
 ├── kuza2                   # CLI client
 ├── kuzad2                  # Daemon manager
 ├── main.py                  # Entry point

@@ -13,16 +13,18 @@
 
 ---
 
-## CLI Client — `kuza2`
+## CLI Client — `kuza`
+
+`kuza` is the stable public launcher. The older `kuza2` entrypoint remains available for compatibility.
 
 | Command | Description |
 |---------|-------------|
-| `kuza2 "prompt"` | Send a task to the running daemon, or run standalone if no daemon is active |
-| `kuza2 status` | Show full system status |
-| `kuza2 task list` | List recent tasks and their state |
-| `kuza2 task <id>` | Get full details of a specific task |
-| `kuza2 cancel <id>` | Cancel a pending or running task |
-| `kuza2 --daemon` | Run in foreground daemon mode (for debugging) |
+| `kuza "prompt"` | Send a task to the running daemon, or run standalone if no daemon is active |
+| `kuza status` | Show full system status |
+| `kuza task list` | List recent tasks and their state |
+| `kuza task <id>` | Get full details of a specific task |
+| `kuza cancel <id>` | Cancel a pending or running task |
+| `kuza --daemon` | Run in foreground daemon mode (for debugging) |
 
 ### CLI Flags
 

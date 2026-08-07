@@ -16,7 +16,7 @@ If the KB is empty, there is no overhead — retrieval is silently skipped.
 ## Quick Setup — 5 Curated Repositories
 
 ```bash
-cd ~/kuza-v2
+cd ~/kuza-ai
 mkdir -p knowledge && cd knowledge
 
 git clone --depth 1 https://github.com/swaroopch/byte-of-python
@@ -25,7 +25,7 @@ git clone --depth 1 https://github.com/luckrnx09/python-guide-for-javascript-eng
 git clone --depth 1 https://github.com/EbookFoundation/free-programming-books
 git clone --depth 1 https://github.com/mdn/content
 
-cd ~/kuza-v2
+cd ~/kuza-ai
 ```
 
 Total size: ~266 MB · ~38 markdown files indexed · ~1167 searchable chunks.
@@ -81,7 +81,7 @@ Expected output:
 ## Add Your Own Documentation
 
 ```bash
-cp my_api_docs.md ~/kuza-v2/knowledge/docs/
+cp my_api_docs.md ~/kuza-ai/knowledge/docs/
 
 python3 -c "
 from tools.kb_scraper import index_directory

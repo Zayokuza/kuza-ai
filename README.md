@@ -7,10 +7,10 @@
  ██╔═██╗ ██║   ██║ ███╔╝  ██╔══██║
  ██║  ██╗╚██████╔╝███████╗██║  ██║
  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝  ─ V2
-  v2.0.0 · Local AI Coding Assistant · Termux
+  v2.1.0 · Local-First AI Coding Agent · Termux
 ```
 
-> **Kuza-AI: A persistent, fully local AI coding agent that runs in Termux on your Android phone — with daemon mode, RAG, git tools, voice, and self-refinement. No cloud required.**
+> **Kuza-AI is a local-first autonomous coding agent for Termux and Android, with persistent sessions, project tools, recovery checkpoints, validation, and optional cloud inference.**
 
 [![Stars](https://img.shields.io/github/stars/Zayokuza/kuza-ai?style=flat-square&color=gold)](https://github.com/Zayokuza/kuza-ai/stargazers)
 [![License](https://img.shields.io/github/license/Zayokuza/kuza-ai?style=flat-square)](LICENSE)
@@ -20,7 +20,7 @@
 
 ![Kuza Mascot](assets/kuza-mascot.png)
 
-A persistent, daemon-based AI coding agent that runs entirely on your Android device. Kuza-AI maintains state across sessions, manages a background task queue, and uses three purpose-built models — a 7B primary agent, a 0.5B planner and summarizer, and a dedicated embedding encoder — all served locally via llama.cpp.
+A persistent, daemon-based AI coding agent that runs locally on your Android device by default. Kuza-AI maintains state across sessions, manages a background task queue, and uses three purpose-built models — a 7B primary agent, a 0.5B planner and summarizer, and a dedicated embedding encoder — all served locally via llama.cpp.
 
 > **Security notice:** Kuza-AI executes shell commands and writes files based on model output. Read the [security guide](docs/security.md) before use.
 
@@ -47,7 +47,7 @@ If you value coding on the go without burning subscriptions or sending code to t
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/Zayokuza/kuza-ai.git && cd Kuza-AI
+git clone https://github.com/Zayokuza/kuza-ai.git && cd kuza-ai
 
 # 2. Run the installer (downloads models, builds llama.cpp, sets PATH)
 ./install.sh
@@ -56,7 +56,7 @@ git clone https://github.com/Zayokuza/kuza-ai.git && cd Kuza-AI
 kuzad2 start
 
 # 4. Send your first task
-kuza2 "add a docstring to every function in utils.py"
+kuza "add a docstring to every function in utils.py"
 
 # 5. Check daemon health at any time
 kuzad2 status
@@ -70,7 +70,7 @@ See [docs/installation.md](docs/installation.md) for manual setup and model down
 
 ```bash
 # 1. Clone and install Python dependencies
-git clone https://github.com/Zayokuza/kuza-ai.git && cd Kuza-AI
+git clone https://github.com/Zayokuza/kuza-ai.git && cd kuza-ai
 pip install -r requirements.txt
 
 # 2. Set your API key (get one at https://openrouter.ai/keys)
@@ -83,7 +83,7 @@ export KUZA_BACKEND="openrouter"
 export OPENROUTER_MODEL="anthropic/claude-sonnet-4-5"
 
 # 5. Run a task
-python main.py "refactor my sort function to use timsort"
+kuza "refactor my sort function to use timsort"
 ```
 
 To make env vars permanent, add them to `~/.bashrc` and run `source ~/.bashrc`.
@@ -122,7 +122,7 @@ export KUZA_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 
 ---
 
-## What's New in v2.0.0
+## What's New in v2.1.0
 
 ### First Stable Release
 
@@ -172,7 +172,7 @@ All three run as independent llama-server processes, managed and watchdog-monito
 | Guide | Contents |
 |-------|----------|
 | [Installation](docs/installation.md) | Requirements, one-line install, manual step-by-step |
-| [Commands](docs/commands.md) | Full reference: `kuzad2`, `kuza2`, slash commands, flags, env vars |
+| [Commands](docs/commands.md) | Full reference: `kuzad2`, `kuza`, slash commands, flags, and environment variables |
 | [Configuration](docs/configuration.md) | Config JSON, model tuning, context management, thermal settings |
 | [Architecture](docs/architecture.md) | System diagram, memory tiers, project structure, Python API |
 | [Goal-Driven Autonomy](docs/GOAL_DRIVEN_AUTONOMY.md) | Save states, validation gates, search persistence, sidecar communication, autonomy profiles |
