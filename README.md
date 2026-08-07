@@ -112,16 +112,6 @@ export KUZA_BACKEND_P="local"       # planner → local 0.5B (port 8081)
 
 ---
 
-## Visuals
-
-### Fibonacci Demo — Kuza-AI in Action
-
-![Kuza-AI Fibonacci Demo](assets/demo-fibonacci.gif)
-
-> Kuza-AI generating a Fibonacci sequence implementation entirely on-device — no cloud, no internet, running in Termux on Android.
-
----
-
 ## What's New in v2.1.0
 
 ### First Stable Release
